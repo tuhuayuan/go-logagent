@@ -1,0 +1,19 @@
+{
+    "input": [
+        {
+            "type": "stdin"
+        }
+    ],
+    "filter": [
+        {
+            "type": "patch",
+            "key": "from",
+            "value": "stdin"
+        }
+    ],
+    "output": [
+        {
+            "type": "stdout"
+        }
+    ]
+}

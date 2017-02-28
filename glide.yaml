@@ -1,0 +1,17 @@
+package: zonst/tuhuayuan/logagent
+import:
+- package: github.com/Sirupsen/logrus
+- package: github.com/codegangsta/inject
+- package: github.com/coreos/etcd
+  subpackages:
+  - client
+- package: github.com/fsnotify/fsnotify
+- package: github.com/garyburd/redigo
+  subpackages:
+  - redis
+- package: gopkg.in/olivere/elastic.v5
+  version: ^5.0.27
+testImport:
+- package: github.com/stretchr/testify
+  subpackages:
+  - assert
