@@ -33,7 +33,8 @@ func main() {
 	flag.Parse()
 
 	if *agentName == "" {
-		Logger.Exit("You must setup an agent name.")
+		utils.Logger.Fatalln("You must setup an agent name.")
+		os.Exit(0)
 	}
 	utils.CmdAgentName(*agentName)
 	if *help != false {
