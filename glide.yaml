@@ -9,8 +9,7 @@ import:
 - package: github.com/garyburd/redigo
   subpackages:
   - redis
-- package: gopkg.in/olivere/elastic.v5
-  version: ^5.0.27
+- package: github.com/mattbaird/elastigo
 testImport:
 - package: github.com/stretchr/testify
   subpackages:

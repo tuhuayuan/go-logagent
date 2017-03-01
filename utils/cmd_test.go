@@ -20,12 +20,12 @@ func Test_CmdLocalPath(t *testing.T) {
 	})
 
 	t.Run("Templates path.", func(t *testing.T) {
-		_, err := CmdLocalPath("../templates")
+		_, err := CmdLocalPath("../test")
 		assert.NoError(t, err)
 	})
 
 	t.Run("Template file.", func(t *testing.T) {
-		_, err := CmdLocalPath("../templates/default.json")
+		_, err := CmdLocalPath("../test/default.json")
 		assert.NoError(t, err)
 	})
 }
@@ -36,7 +36,7 @@ func Test_CmdEtcdHost(t *testing.T) {
 }
 
 func Test_cmdFileList(t *testing.T) {
-	files, err := cmdFileList("../templates", "json")
+	files, err := cmdFileList("../test", "json")
 	assert.NotEmpty(t, files)
 	assert.NoError(t, err)
 }

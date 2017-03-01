@@ -2,6 +2,8 @@ package outputelastic
 
 import (
 	"zonst/tuhuayuan/logagent/utils"
+
+	elastigo "github.com/mattbaird/elastigo/lib"
 )
 
 const (
@@ -12,6 +14,19 @@ const (
 // PluginConfig plugin struct
 type PluginConfig struct {
 	utils.OutputPluginConfig
+
+	Hosts    []string `json:"hosts"`
+	Username string   `json:"username"`
+	Password string   `json:"password"`
+	// TODO if elastic index not created, using template settings create it.
+	Template string `json:"template"`
+	Index    string `json:"index"`
+	DocType  string `json:"doc_type"`
+
+	conn       *elastigo.Conn
+	bufChan    chan utils.LogEvent
+	exitSignal chan bool
+	exitNotify chan bool
 }
 
 func init() {
@@ -19,16 +34,78 @@ func init() {
 }
 
 // InitHandler create plugin.
-func InitHandler() (plugin *PluginConfig, err error) {
+func InitHandler(part *utils.ConfigPart) (plugin *PluginConfig, err error) {
+	conf := PluginConfig{
+		OutputPluginConfig: utils.OutputPluginConfig{
+			TypePluginConfig: utils.TypePluginConfig{
+				Type: PluginName,
+			},
+		},
+		conn:       elastigo.NewConn(),
+		bufChan:    make(chan utils.LogEvent, 1024),
+		exitSignal: make(chan bool, 1),
+		exitNotify: make(chan bool),
+	}
+	// read config
+	err = utils.ReflectConfigPart(part, &conf)
+	if err != nil {
+		utils.Logger.Errorf("Elastic plugin config error %q", err)
+		return
+	}
+	// setup elastic client
+	conf.conn.SetHosts(conf.Hosts)
+	if conf.Username != "" {
+		conf.conn.Username = conf.Username
+		conf.conn.Password = conf.Password
+	}
+	// test connection
+	_, err = conf.conn.Health("_all")
+	if err != nil {
+		utils.Logger.Warnf("Elasic cluster health check error %q", err)
+	}
+	plugin = &conf
+	go plugin.loopEvent()
 	return
 }
 
 // Process send log event.
-func (plugin *PluginConfig) Process(event utils.LogEvent) {
-
+func (plugin *PluginConfig) Process(event utils.LogEvent) (err error) {
+	plugin.bufChan <- event
+	return
 }
 
 // Stop stop loop.
 func (plugin *PluginConfig) Stop() {
+	plugin.exitSignal <- true
+	<-plugin.exitNotify
+}
 
+// loopEvent
+func (plugin *PluginConfig) loopEvent() (err error) {
+	var (
+		index   string
+		docType string
+	)
+
+	for {
+		select {
+		case event := <-plugin.bufChan:
+			index = event.Format(plugin.Index)
+			docType = event.Format(plugin.DocType)
+			_, err := plugin.conn.Index(index, docType, "", map[string]interface{}{}, event.GetMap())
+			// TODO elastic error not handler.
+			if err != nil {
+				utils.Logger.Warnf("Elastic: output index error %q", err)
+			}
+
+		case <-plugin.exitSignal:
+			if len(plugin.bufChan) > 0 {
+				plugin.exitSignal <- true
+			} else {
+				plugin.conn.Close()
+				plugin.exitNotify <- true
+				return
+			}
+		}
+	}
 }

@@ -63,7 +63,6 @@ func (c *Config) StopOutputs() (err error) {
 
 // runOutputs.
 func (c *Config) runOutputs(outchan OutChan, exitSignal outputExitSignal, exitNotify outputExitChan) (err error) {
-
 	outputs, err := c.getOutputs()
 	if err != nil {
 		return
@@ -76,11 +75,9 @@ func (c *Config) runOutputs(outchan OutChan, exitSignal outputExitSignal, exitNo
 			select {
 			case event := <-outchan:
 				for _, output := range outputs {
-					go func() {
-						if err = output.Process(event); err != nil {
-							Logger.Errorf("output plugin failed: %q\n", err)
-						}
-					}()
+					if err = output.Process(event); err != nil {
+						Logger.Errorf("output plugin failed: %q\n", err)
+					}
 				}
 			case <-exitSignal:
 				if len(outchan) == 0 {

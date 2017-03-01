@@ -23,7 +23,10 @@ var (
 	reVar  = regexp.MustCompile(`\${([\w@]+)}`)
 )
 
-const timeFormat = `2006-01-02T15:04:05.999999999Z`
+const (
+	timeFormat = `2006-01-02T15:04:05.999`
+	dateFormat = `2006-01-02`
+)
 
 // AddTag add tags to event.
 func (le *LogEvent) AddTag(tags ...string) {
@@ -45,7 +48,7 @@ func (le *LogEvent) AddTag(tags ...string) {
 
 // Marshal return json bytes (packed).
 func (le LogEvent) Marshal(readable bool) (data []byte, err error) {
-	event := le.getJSONMap()
+	event := le.GetMap()
 	if readable {
 		return json.MarshalIndent(event, "", "  ")
 	}
@@ -56,6 +59,8 @@ func (le LogEvent) Marshal(readable bool) (data []byte, err error) {
 func (le LogEvent) Get(field string) (v interface{}) {
 	switch field {
 	case "@timestamp":
+		v = le.Timestamp
+	case "@date":
 		v = le.Timestamp
 	case "message":
 		v = le.Message
@@ -70,6 +75,8 @@ func (le LogEvent) GetString(field string) (v string) {
 	switch field {
 	case "@timestamp":
 		v = le.Timestamp.UTC().Format(timeFormat)
+	case "@date":
+		v = le.Timestamp.UTC().Format(dateFormat)
 	case "message":
 		v = le.Message
 	default:
@@ -80,8 +87,8 @@ func (le LogEvent) GetString(field string) (v string) {
 	return
 }
 
-// get map[string]interface of LogEvent instance.
-func (le LogEvent) getJSONMap() map[string]interface{} {
+// GetMap map[string]interface of LogEvent instance.
+func (le LogEvent) GetMap() map[string]interface{} {
 	event := map[string]interface{}{
 		"@timestamp": le.Timestamp.UTC().Format(timeFormat),
 	}

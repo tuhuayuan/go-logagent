@@ -16,7 +16,7 @@ func init() {
 }
 
 func Test_All(t *testing.T) {
-	conf, err := utils.LoadFromString(`{
+	plugin, err := utils.LoadFromString(`{
 		"output": [{
 			"type": "redis",
 	    	"key": "log",
@@ -27,10 +27,10 @@ func Test_All(t *testing.T) {
 		}]
 	}`)
 
-	err = conf.RunOutputs()
+	err = plugin.RunOutputs()
 	assert.NoError(t, err)
 
-	outchan := conf.Get(reflect.TypeOf(make(utils.OutChan))).
+	outchan := plugin.Get(reflect.TypeOf(make(utils.OutChan))).
 		Interface().(utils.OutChan)
 	outchan <- utils.LogEvent{
 		Timestamp: time.Now(),
@@ -39,6 +39,5 @@ func Test_All(t *testing.T) {
 			"name": "tuhuayuan",
 		},
 	}
-
-	time.Sleep(2 * time.Second)
+	plugin.StopOutputs()
 }

@@ -24,7 +24,7 @@ type PluginConfig struct {
 	Timeout  int    `json:"timeout"`
 
 	pool       *redis.Pool
-	evchan     chan utils.LogEvent
+	bufChan    chan utils.LogEvent
 	exitSignal chan bool
 	exitNotify chan bool
 }
@@ -42,7 +42,9 @@ func InitHandler(part *utils.ConfigPart) (plugin *PluginConfig, err error) {
 			},
 		},
 
-		evchan: make(chan utils.LogEvent),
+		bufChan:    make(chan utils.LogEvent, 1024),
+		exitSignal: make(chan bool, 1),
+		exitNotify: make(chan bool),
 	}
 	if err = utils.ReflectConfigPart(part, &conf); err != nil {
 		return
@@ -83,14 +85,14 @@ func InitHandler(part *utils.ConfigPart) (plugin *PluginConfig, err error) {
 
 // Process flush log event
 func (plugin *PluginConfig) Process(event utils.LogEvent) (err error) {
-	plugin.evchan <- event
+	plugin.bufChan <- event
 	return
 }
 
 // Stop stop loopEvent goroutine
 func (plugin *PluginConfig) Stop() {
-	plugin.exitNotify <- true
-	<-plugin.exitSignal
+	plugin.exitSignal <- true
+	<-plugin.exitNotify
 }
 
 // loopEvent
@@ -103,7 +105,7 @@ func (plugin *PluginConfig) loopEvent() (err error) {
 
 	for {
 		select {
-		case event := <-plugin.evchan:
+		case event := <-plugin.bufChan:
 			if data, err = event.Marshal(true); err != nil {
 				utils.Logger.Errorf("marshal failed: %v", event)
 				return
@@ -123,11 +125,14 @@ func (plugin *PluginConfig) loopEvent() (err error) {
 			if err != nil {
 				utils.Logger.Warnf("Redis error %q, log lost.", err)
 			}
-
-		case <-plugin.exitNotify:
-			plugin.pool.Close()
-			plugin.exitSignal <- true
-			return
+		case <-plugin.exitSignal:
+			if len(plugin.bufChan) > 0 {
+				plugin.exitSignal <- true
+			} else {
+				plugin.pool.Close()
+				plugin.exitNotify <- true
+				return
+			}
 		}
 	}
 }

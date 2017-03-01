@@ -21,9 +21,13 @@ var (
 	fakeDestination = make(OutChan, 2)
 )
 
-func (tp *TestOutputPlugin) Flush(e LogEvent) (err error) {
+func (tp *TestOutputPlugin) Process(e LogEvent) (err error) {
 	fakeDestination <- e
 	return
+}
+
+func (tp *TestOutputPlugin) Stop() {
+
 }
 
 func InitTestOutputPlugin(config *ConfigPart) (*TestOutputPlugin, error) {
