@@ -2,29 +2,30 @@ package main
 
 import (
 	"flag"
+	"os"
 	"strings"
 
 	"zonst/tuhuayuan/logagent/utils"
 
 	// load and regist all plugins
-	"os"
 	_ "zonst/tuhuayuan/logagent/filter/grok"
 	_ "zonst/tuhuayuan/logagent/filter/patch"
 	_ "zonst/tuhuayuan/logagent/input/file"
 	_ "zonst/tuhuayuan/logagent/input/stdin"
+	_ "zonst/tuhuayuan/logagent/input/udp"
 	_ "zonst/tuhuayuan/logagent/output/elastic"
 	_ "zonst/tuhuayuan/logagent/output/redis"
 	_ "zonst/tuhuayuan/logagent/output/stdout"
 )
 
 var (
-	sentinel   = flag.Bool("sentinel", false, "Sentinel mode.")
-	configFile = flag.String("configs", "/etc/logagent", "Directory of config files.")
-	etcdHosts  = flag.String("endpoints", "", "Endpoints of etcd.")
-	agentName  = flag.String("name", "$HOSTNAME", "Global agent name.")
-	level      = flag.Int("v", 3, "Logger level 0(panic)~5(debug).")
-	_default   = flag.Bool("default", false, "Run default config.")
-	help       = flag.Bool("help", false, "Print this message.")
+	sentinel  = flag.Bool("sentinel", false, "Sentinel mode.")
+	configDir = flag.String("configs", "/etc/logagent", "Directory of config files.")
+	etcdHosts = flag.String("endpoints", "", "Endpoints of etcd.")
+	agentName = flag.String("name", "", "Global agent name.")
+	level     = flag.Int("v", 3, "Logger level 0(panic)~5(debug).")
+	_default  = flag.Bool("default", false, "Run default config.")
+	help      = flag.Bool("help", false, "Print this message.")
 )
 
 func main() {
@@ -42,7 +43,7 @@ func main() {
 			utils.Logger.Fatalf("Agent name not set, get hostname error %s", err)
 			os.Exit(1)
 		}
-		utils.Logger.Warn("Agent name not set use hostname %s", hostname)
+		utils.Logger.Warnf("Agent name not set use hostname %s", hostname)
 		*agentName = hostname
 	}
 

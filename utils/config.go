@@ -22,7 +22,7 @@ const Defaultconfig = `
     ],
     "filter": [
         {
-            "type": "zeus",
+            "type": "patch",
             "key": "foo",
             "value": "bar"
         }
@@ -48,7 +48,7 @@ type TypePluginConfig struct {
 	Type            string `json:"type"`
 }
 
-// ConfigPart pary of a config node (input, filter, output)
+// ConfigPart subpart of a config node (input, filter, output)
 type ConfigPart map[string]interface{}
 
 // Config struct of a config file.

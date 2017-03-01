@@ -5,7 +5,6 @@ import (
 	"bytes"
 	"encoding/json"
 	"errors"
-	"fmt"
 	"io"
 	"io/ioutil"
 	"os"
@@ -95,7 +94,6 @@ func (plugin *PluginConfig) Stop() {
 	for _, m := range mapWatcher {
 		m.Close()
 	}
-	fmt.Println("Wait.............")
 	plugin.wgExit.Wait()
 }
 
@@ -243,7 +241,7 @@ func (plugin *PluginConfig) watch(inchan utils.InChan) (err error) {
 		}
 		// skip directory
 		if fi.IsDir() {
-			utils.Logger.Warnf("Skipping directory %s", fi.Name)
+			utils.Logger.Warnf("Skipping directory %s", fi.Name())
 			continue
 		}
 		// monitor file.

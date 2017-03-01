@@ -8,7 +8,7 @@
         {
             "type": "patch",
             "key": "from",
-            "value": "stdin"
+            "value": "dd"
         }
     ],
     "output": [
