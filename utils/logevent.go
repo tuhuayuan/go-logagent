@@ -1,5 +1,7 @@
 package utils
 
+// 日志格式（Zabbix 设计）
+
 import (
 	"encoding/json"
 	"fmt"

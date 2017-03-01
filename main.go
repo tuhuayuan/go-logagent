@@ -2,14 +2,12 @@ package main
 
 import (
 	"flag"
-	"fmt"
-	"os"
-	"os/signal"
-	"syscall"
+	"strings"
 
 	"zonst/tuhuayuan/logagent/utils"
 
-	// load plugins
+	// load and regist all plugins
+	"os"
 	_ "zonst/tuhuayuan/logagent/filter/grok"
 	_ "zonst/tuhuayuan/logagent/filter/patch"
 	_ "zonst/tuhuayuan/logagent/input/file"
@@ -20,45 +18,53 @@ import (
 )
 
 var (
-	configFile = flag.String("config", "", "The local config file path.")
-	etcdHosts  = flag.String("endpoints", "", "The etcd config server list.")
-	autoReload = flag.Bool("reload", false, "If auto reload when config changed.")
-	agentName  = flag.String("name", "", "Default agent name. You must change it if using etcd for config server.")
-	verbose    = flag.Bool("v", false, "Show verbose log.")
-	std        = flag.Bool("std", false, "The shortcut to use default stdin to stdout config template.")
-	help       = flag.Bool("help", false, "Print the usages.")
+	sentinel   = flag.Bool("sentinel", false, "Sentinel mode.")
+	configFile = flag.String("configs", "/etc/logagent", "Directory of config files.")
+	etcdHosts  = flag.String("endpoints", "", "Endpoints of etcd.")
+	agentName  = flag.String("name", "$HOSTNAME", "Global agent name.")
+	level      = flag.Int("v", 3, "Logger level 0(panic)~5(debug).")
+	_default   = flag.Bool("default", false, "Run default config.")
+	help       = flag.Bool("help", false, "Print this message.")
 )
 
 func main() {
 	flag.Parse()
 
+	utils.SetLoggerLevel(*level)
+
+	if *help {
+		flag.Usage()
+		os.Exit(0)
+	}
 	if *agentName == "" {
-		utils.Logger.Fatalln("You must setup an agent name.")
-		os.Exit(0)
-	}
-	utils.CmdAgentName(*agentName)
-	if *help != false {
-		flag.Usage()
-		os.Exit(0)
-	}
-
-	var confs []utils.Config
-	if *std != false {
-		conf, err := utils.LoadDefaultConfig()
+		hostname, err := os.Hostname()
 		if err != nil {
-			fmt.Println(err)
+			utils.Logger.Fatalf("Agent name not set, get hostname error %s", err)
+			os.Exit(1)
 		}
-		confs = append(confs, conf)
-	} else {
-		flag.Usage()
+		utils.Logger.Warn("Agent name not set use hostname %s", hostname)
+		*agentName = hostname
 	}
-	utils.CmdRun(confs)
 
-	// Relay SIGINT SIGTERM SIGKILL to chExit.
-	chExit := make(chan os.Signal)
-	signal.Notify(chExit, syscall.SIGINT, syscall.SIGTERM, syscall.SIGKILL)
-	select {
-	case <-chExit:
-		fmt.Println("Bye.")
+	var code int
+	if *sentinel {
+		code = runSentinel()
+	} else {
+		code = runAgent()
 	}
+	os.Exit(code)
+}
+
+// getEtcdList get host list from arguments.
+func getEtcdList() []string {
+	endpoints := strings.Split(*etcdHosts, ";")
+	for i, v := range endpoints {
+		endpoints[i] = strings.TrimSpace(v)
+	}
+	return endpoints
+}
+
+// getEtcdPath get agent config path from arguments.
+func getEtcdPath() string {
+	return "/zonst.org/logagent/" + *agentName + "/"
 }

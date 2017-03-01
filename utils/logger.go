@@ -18,3 +18,11 @@ var (
 		Level: logrus.InfoLevel,
 	}
 )
+
+// SetLoggerLevel set logger level.
+func SetLoggerLevel(level int) {
+	l := logrus.Level(level)
+	if l >= logrus.PanicLevel && l <= logrus.DebugLevel {
+		Logger.Level = l
+	}
+}
