@@ -7,6 +7,7 @@ import (
 )
 
 var (
+	// Logger logger use for all.
 	Logger = &logrus.Logger{
 		Out: os.Stdout,
 		Formatter: &logrus.TextFormatter{
