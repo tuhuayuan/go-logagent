@@ -1,6 +1,7 @@
 package main
 
 import (
+	"fmt"
 	"os"
 	"os/signal"
 	"syscall"
@@ -45,11 +46,16 @@ func runAgent() int {
 
 	signalChan := make(chan os.Signal, 1)
 	signal.Notify(signalChan, syscall.SIGINT, syscall.SIGTERM, syscall.SIGKILL)
+
 	ppid := os.Getppid()
+	fmt.Println(ppid)
 	pp, err := os.FindProcess(ppid)
 	if err == nil {
-		pp.Signal(syscall.SIGINFO)
+		pp.Signal(syscall.SIGUSR2)
+	} else {
+		fmt.Println(err)
 	}
+
 	running = true
 	for running {
 		select {

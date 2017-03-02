@@ -2,7 +2,6 @@ package main
 
 import (
 	"context"
-	"fmt"
 	"os"
 	"os/exec"
 	"os/signal"
@@ -75,11 +74,23 @@ func getAgentCmd() *exec.Cmd {
 
 // watching subprocess.
 func watchAgentProcess(exit chan bool, running *bool, cmdChan chan *exec.Cmd) {
+	startup := make(chan os.Signal, 1)
+	signal.Notify(startup, syscall.SIGUSR2)
+
 	for *running {
 		cmd := getAgentCmd()
 		err := cmd.Start()
 		if err != nil {
 			utils.Logger.Warnf("Agent start process error %s", err)
+		}
+		timeout := make(chan bool, 1)
+		go func() {
+			time.Sleep(5 * time.Second)
+			timeout <- true
+		}()
+		select {
+		case <-timeout:
+		case <-startup:
 		}
 		cmdChan <- cmd
 		state, err := cmd.Process.Wait()
@@ -150,8 +161,11 @@ func watchDir(event chan bool) {
 	for {
 		select {
 		case e := <-watcher.Events:
-			fmt.Println(e)
-			event <- true
+			if e.Op&(fsnotify.Write|fsnotify.Create|fsnotify.Remove) > 0 {
+				if len(event) == 0 {
+					event <- true
+				}
+			}
 		}
 	}
 

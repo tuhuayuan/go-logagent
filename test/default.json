@@ -9,14 +9,14 @@
         {
             "type": "patch",
             "key": "from",
-            "value": "stdin"
+            "value": "test_command"
         },
         {
             "type": "grok",
-            "match": "(?P<input>.*)"
+            "match": "(?P<input_command>.*)"
         }
-    ],
-    "output": [
+    ],   
+    "output": [     
         {
             "type": "stdout"
         }
