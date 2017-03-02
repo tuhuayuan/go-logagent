@@ -5,11 +5,11 @@
             "prefix": "[logagent#] "
         }
     ],
-    "filter": [
+    "filter": [ 
         {
             "type": "patch",
             "key": "from",
-            "value": "test_command"
+            "value": "test_command"   
         },
         {
             "type": "grok",

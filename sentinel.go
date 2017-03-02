@@ -12,6 +12,8 @@ import (
 
 	"time"
 
+	"strconv"
+
 	"github.com/coreos/etcd/client"
 	"github.com/fsnotify/fsnotify"
 )
@@ -59,7 +61,7 @@ func runSentinel() int {
 
 // get agent command.
 func getAgentCmd() *exec.Cmd {
-	var agentArgs []string
+	agentArgs := []string{"-pid", strconv.Itoa(os.Getpid())}
 	for _, arg := range os.Args[1:] {
 		if !strings.HasPrefix(arg, "-sentinel") {
 			agentArgs = append(agentArgs, arg)
@@ -75,7 +77,7 @@ func getAgentCmd() *exec.Cmd {
 // watching subprocess.
 func watchAgentProcess(exit chan bool, running *bool, cmdChan chan *exec.Cmd) {
 	startup := make(chan os.Signal, 1)
-	signal.Notify(startup, syscall.SIGUSR2)
+	signal.Notify(startup, syscall.SIGUSR1)
 
 	for *running {
 		cmd := getAgentCmd()
