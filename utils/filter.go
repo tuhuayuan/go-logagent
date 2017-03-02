@@ -114,6 +114,9 @@ func (c *Config) getFilters() (filters []FilterPlugin, err error) {
 				conf.SetInjector(inj)
 				filters = append(filters, conf)
 			}
+			if err, ok := v.Interface().(error); ok {
+				Logger.Warnf("Load filter plugin config error %s", err)
+			}
 		}
 	}
 	return

@@ -10,6 +10,10 @@ import (
 
 var inChan utils.InChan
 
+func init() {
+	utils.RegistInputHandler(PluginName, InitHandler)
+}
+
 func getInChan(in utils.InChan) {
 	inChan = in
 }

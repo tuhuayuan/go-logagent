@@ -120,6 +120,9 @@ func (c *Config) getOutputs() (outputs []OutputPlugin, err error) {
 				conf.SetInjector(inj)
 				outputs = append(outputs, conf)
 			}
+			if err, ok := v.Interface().(error); ok {
+				Logger.Warnf("Load output plugin config error %s", err)
+			}
 		}
 	}
 	return

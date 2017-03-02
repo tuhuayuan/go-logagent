@@ -102,6 +102,10 @@ func (c *Config) getInputs(inchan InChan) (inputs []InputPlugin, err error) {
 				plugin.SetInjector(inj)
 				inputs = append(inputs, plugin)
 			}
+
+			if err, ok := v.Interface().(error); ok {
+				Logger.Warnf("Load input plugin config error %s", err)
+			}
 		}
 	}
 	return
