@@ -41,6 +41,6 @@ func Test_LoadFromNode(t *testing.T) {
 	key := "/zonst.org/logagent/" + agent + "/"
 	api.Delete(context.Background(), key, nil)
 	api.Set(context.Background(), key, Defaultconfig, nil)
-	_, err = LoadFromNode(eps)
+	_, err = LoadFromNode(eps, key)
 	assert.NoError(t, err)
 }

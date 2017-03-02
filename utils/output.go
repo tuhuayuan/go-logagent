@@ -41,7 +41,10 @@ func RegistOutputHandler(name string, handler OutputHandler) {
 func (c *Config) RunOutputs() (err error) {
 	c.Injector.Map(make(outputExitChan, 1))
 	c.Injector.Map(make(outputExitSignal, 1))
-	_, err = c.Injector.Invoke(c.runOutputs)
+	rvs, err := c.Injector.Invoke(c.runOutputs)
+	if !rvs[0].IsNil() {
+		err = rvs[0].Interface().(error)
+	}
 	return
 }
 
@@ -96,7 +99,7 @@ func (c *Config) getOutputs() (outputs []OutputPlugin, err error) {
 	for _, part := range c.OutputPart {
 		handler, ok := mapOutputHandler[part["type"].(string)]
 		if !ok {
-			err = errors.New(part["type"].(string))
+			err = errors.New("unknow output plugin type " + part["type"].(string))
 			return
 		}
 

@@ -44,7 +44,7 @@ func (plugin *PluginConfig) Process(event utils.LogEvent) (err error) {
 	if err != nil {
 		return
 	}
-	fmt.Println(string(data))
+	fmt.Println("\n", string(data))
 	return
 }
 

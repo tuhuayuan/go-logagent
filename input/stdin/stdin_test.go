@@ -18,14 +18,11 @@ func Test_All(t *testing.T) {
 	conf, err := utils.LoadFromString(`{
 		"input": [{
 			"type": "stdin",
-			"prefix": "input #"
+			"prefix": "[test#] "
 		}]
 	}`)
 	conf.Injector.Invoke(getInChan)
 	err = conf.RunInputs()
 	assert.NoError(t, err)
-	// test just one logevent
-	<-inChan
-	assert.True(t, len(inChan) > 0)
 	conf.StopInputs()
 }

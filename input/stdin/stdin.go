@@ -3,12 +3,10 @@ package stdininput
 import (
 	"bufio"
 	"fmt"
+	"io"
 	"os"
 	"time"
 
-	"github.com/Sirupsen/logrus"
-
-	"io"
 	"zonst/tuhuayuan/logagent/utils"
 )
 
@@ -17,93 +15,77 @@ const (
 	PluginName = "stdin"
 )
 
-type signalChan chan int
-
 // PluginConfig Plugin Config struct of this plugin
 type PluginConfig struct {
 	utils.InputPluginConfig
-	Prefix   string `json:"prefix"`
-	hostname string
-	running  bool
-	exitChan signalChan
+	Prefix string `json:"prefix"`
+
+	hostname    string
+	exitSignal  chan bool
+	inputSignal chan string
 }
 
 func init() {
 	utils.RegistInputHandler(PluginName, InitHandler)
 }
 
-// InitHandler build handler.
+// InitHandler create handler.
 func InitHandler(part *utils.ConfigPart) (plugin *PluginConfig, err error) {
-	me := PluginConfig{
+	config := PluginConfig{
 		InputPluginConfig: utils.InputPluginConfig{
 			TypePluginConfig: utils.TypePluginConfig{
 				Type: PluginName,
 			},
 		},
-		exitChan: make(signalChan, 1),
+		exitSignal:  make(chan bool, 1),
+		inputSignal: make(chan string, 1),
 	}
-	if err = utils.ReflectConfigPart(part, &me); err != nil {
+	if err = utils.ReflectConfigPart(part, &config); err != nil {
 		return
 	}
-
-	if me.hostname, err = os.Hostname(); err != nil {
+	if config.hostname, err = os.Hostname(); err != nil {
 		return
 	}
-
-	plugin = &me
+	plugin = &config
 	return
 }
 
 // Start start it.
 func (plugin *PluginConfig) Start() {
-	plugin.Invoke(plugin.echo)
+	plugin.Invoke(plugin.loopRead)
 }
 
 // Stop stop it.
 func (plugin *PluginConfig) Stop() {
-	plugin.running = false
-	<-plugin.exitChan
+	plugin.exitSignal <- true
 }
 
-func (plugin *PluginConfig) echo(logger *logrus.Logger, inchan utils.InChan) (err error) {
-	defer func() {
-		if err != nil {
-			logger.Errorln(err)
+func (plugin *PluginConfig) loopRead(inchan utils.InChan) (err error) {
+	go func(plugin *PluginConfig) {
+		reader := bufio.NewReader(os.Stdin)
+		for {
+			fmt.Println(plugin.Prefix)
+			data, _, err := reader.ReadLine()
+			if err == io.EOF {
+				return
+			}
+			plugin.inputSignal <- string(data)
 		}
-	}()
+	}(plugin)
 
-	plugin.running = true
-	var reader *bufio.Reader
-	if os.Getenv("TEST") != "" {
-		tmpFile := os.Getenv("TEMPFILE")
-		f, err := os.Open(tmpFile)
-		if err != nil {
-			utils.Logger.Warnf("StdinPlugin can't open temp file %s, fallback to stdin", tmpFile)
-			reader = bufio.NewReader(os.Stdin)
+	for {
+		select {
+		case <-plugin.exitSignal:
+			return
+		case input := <-plugin.inputSignal:
+			event := utils.LogEvent{
+				Timestamp: time.Now(),
+				Message:   input,
+				Extra: map[string]interface{}{
+					"host": plugin.hostname,
+				},
+			}
+			inchan <- event
 		}
-		reader = bufio.NewReader(f)
-	} else {
-		reader = bufio.NewReader(os.Stdin)
 	}
-
-	for plugin.running {
-		fmt.Print(plugin.Prefix)
-		data, _, err := reader.ReadLine()
-		if err == io.EOF {
-			plugin.running = false
-			continue
-		}
-		command := string(data)
-		event := utils.LogEvent{
-			Timestamp: time.Now(),
-			Message:   command,
-			Extra: map[string]interface{}{
-				"host": plugin.hostname,
-			},
-		}
-		inchan <- event
-
-	}
-	plugin.exitChan <- 1
-	return
 }

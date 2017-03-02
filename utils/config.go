@@ -5,35 +5,16 @@ import (
 	"context"
 	"encoding/json"
 	"io/ioutil"
+	"os"
 	"reflect"
 	"regexp"
+	"strings"
+
+	"errors"
 
 	"github.com/codegangsta/inject"
 	"github.com/coreos/etcd/client"
 )
-
-// Defaultconfig hardcode default config
-const Defaultconfig = `
-{
-    "input": [
-        {
-            "type": "stdin"
-        }
-    ],
-    "filter": [
-        {
-            "type": "patch",
-            "key": "foo",
-            "value": "bar"
-        }
-    ],
-    "output": [
-        {
-            "type": "stdout"
-        }
-    ]
-}
-`
 
 // TypePlugin interface of typed plugin
 type TypePlugin interface {
@@ -97,13 +78,36 @@ func (c *TypePluginConfig) Invoke(f interface{}) (refvs []reflect.Value, err err
 	return
 }
 
-// LoadFromFile load from file path.
-func LoadFromFile(path string) (config Config, err error) {
-	data, err := ioutil.ReadFile(path)
+// LoadFromDir load from file path.
+func LoadFromDir(path string) (configs []Config, err error) {
+	fi, err := os.Stat(path)
 	if err != nil {
 		return
 	}
-	return LoadFromData(data)
+	if !fi.IsDir() {
+		err = errors.New("config path is not a directory")
+		return
+
+	}
+	flist, err := FileList(path, "json")
+	if err != nil {
+		err = errors.New("config path error " + err.Error())
+		return
+	}
+	for _, f := range flist {
+		data, err := ioutil.ReadFile(f)
+		if err != nil {
+			Logger.Warnf("Read config file error %s", err)
+			continue
+		}
+		config, err := LoadFromData(data)
+		if err != nil {
+			Logger.Warnf("Load config from date  %s", err)
+			continue
+		}
+		configs = append(configs, config)
+	}
+	return
 }
 
 // LoadFromString load from golang string.
@@ -111,13 +115,8 @@ func LoadFromString(text string) (config Config, err error) {
 	return LoadFromData([]byte(text))
 }
 
-// LoadDefaultConfig load from hardcode string.
-func LoadDefaultConfig() (config Config, err error) {
-	return LoadFromString(Defaultconfig)
-}
-
 // LoadFromNode load config from etcd node.
-func LoadFromNode(endpoints []string) (configs []Config, err error) {
+func LoadFromNode(endpoints []string, root string) (configs []Config, err error) {
 	cfg := client.Config{
 		Endpoints: endpoints,
 		Transport: client.DefaultTransport,
@@ -128,8 +127,7 @@ func LoadFromNode(endpoints []string) (configs []Config, err error) {
 		return
 	}
 	api := client.NewKeysAPI(c)
-	key := "/zonst.org/logagent/" + agentName + "/"
-	resp, err := api.Get(context.Background(), key, nil)
+	resp, err := api.Get(context.Background(), root, nil)
 	if err != nil || !resp.Node.Dir {
 		return
 	}
@@ -243,4 +241,29 @@ func (c *Config) InvokeSimple(arg interface{}) (err error) {
 	}
 	err = checkError(refvs)
 	return
+}
+
+// FileList list *.suffix files in dirPath.
+func FileList(dirPath string, suffix string) ([]string, error) {
+	files := make([]string, 0, 128)
+
+	dir, err := ioutil.ReadDir(dirPath)
+	if err != nil {
+		return nil, err
+	}
+
+	sep := string(os.PathSeparator)
+	suffix = strings.ToLower(suffix)
+
+	for _, fi := range dir {
+		if fi.IsDir() {
+			// no recursive
+			continue
+		}
+		if strings.HasSuffix(strings.ToLower(fi.Name()), suffix) {
+			files = append(files, dirPath+sep+fi.Name())
+		}
+	}
+
+	return files, nil
 }

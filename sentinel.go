@@ -2,6 +2,7 @@ package main
 
 import (
 	"context"
+	"fmt"
 	"os"
 	"os/exec"
 	"os/signal"
@@ -10,20 +11,30 @@ import (
 	"syscall"
 	"zonst/tuhuayuan/logagent/utils"
 
+	"time"
+
 	"github.com/coreos/etcd/client"
 	"github.com/fsnotify/fsnotify"
 )
 
 func runSentinel() int {
-	cmd := getAgentCmd()
-	err := cmd.Start()
-	if err != nil {
-		utils.Logger.Errorf("start agent error %s", err)
-		return -1
-	}
+	var (
+		exit    chan bool
+		running bool
+		cmdChan chan *exec.Cmd
+	)
+	cmdChan = make(chan *exec.Cmd, 1)
+
+	// trace agent process state.
+	exit = make(chan bool, 1)
+	running = true
+	go watchAgentProcess(exit, &running, cmdChan)
+
+	// trace system signal.
 	signalChan := make(chan os.Signal, 1)
 	signal.Notify(signalChan, syscall.SIGINT, syscall.SIGTERM, syscall.SIGKILL)
 
+	// trace configs.
 	watchChan := make(chan bool, 1)
 	if *etcdHosts != "" {
 		go watchEtcd(watchChan)
@@ -31,35 +42,23 @@ func runSentinel() int {
 		go watchDir(watchChan)
 	}
 
+	// main loop
 	for {
+		current := <-cmdChan
 		select {
 		case sig := <-signalChan:
-			cmd.Process.Signal(sig)
-			_, err := cmd.Process.Wait()
-			if err != nil {
-				utils.Logger.Warnf("Subprocess exit error %s", err)
-				return -1
-			}
+			running = false
+			current.Process.Signal(sig)
+			<-exit
 			return 0
 		case <-watchChan:
 			utils.Logger.Warn("Config changed, agent restarting.")
-			cmd.Process.Signal(syscall.SIGINT)
-			_, err := cmd.Process.Wait()
-			if err != nil {
-				utils.Logger.Warnf("Subprocess exit stop error %s", err)
-				// kill immediately
-				cmd.Process.Kill()
-			}
-			cmd = getAgentCmd()
-			err = cmd.Start()
-			if err != nil {
-				utils.Logger.Fatalf("Subprocess restart error %s", err)
-				return -1
-			}
+			current.Process.Signal(syscall.SIGINT)
 		}
 	}
 }
 
+// get agent command.
 func getAgentCmd() *exec.Cmd {
 	var agentArgs []string
 	for _, arg := range os.Args[1:] {
@@ -70,7 +69,29 @@ func getAgentCmd() *exec.Cmd {
 	cmd := exec.Command(os.Args[0], agentArgs...)
 	cmd.Stdout = os.Stdout
 	cmd.Stderr = os.Stderr
+	cmd.Stdin = os.Stdin
 	return cmd
+}
+
+// watching subprocess.
+func watchAgentProcess(exit chan bool, running *bool, cmdChan chan *exec.Cmd) {
+	for *running {
+		cmd := getAgentCmd()
+		err := cmd.Start()
+		if err != nil {
+			utils.Logger.Warnf("Agent start process error %s", err)
+		}
+		cmdChan <- cmd
+		state, err := cmd.Process.Wait()
+		if err != nil || !state.Success() {
+			utils.Logger.Warnf("Agent process error %q, %q", state, err)
+		}
+		if *running {
+			utils.Logger.Warnf("Agent process will restart in %d second.", 5)
+			time.Sleep(time.Duration(5) * time.Second)
+		}
+	}
+	exit <- true
 }
 
 // watching etcd config change.
@@ -128,7 +149,8 @@ func watchDir(event chan bool) {
 	// watch any change
 	for {
 		select {
-		case <-watcher.Events:
+		case e := <-watcher.Events:
+			fmt.Println(e)
 			event <- true
 		}
 	}

@@ -24,7 +24,6 @@ var (
 	etcdHosts = flag.String("endpoints", "", "Endpoints of etcd.")
 	agentName = flag.String("name", "", "Global agent name.")
 	level     = flag.Int("v", 3, "Logger level 0(panic)~5(debug).")
-	_default  = flag.Bool("default", false, "Run default config.")
 	help      = flag.Bool("help", false, "Print this message.")
 )
 

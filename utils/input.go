@@ -36,7 +36,10 @@ func RegistInputHandler(name string, handler InputHandler) {
 
 // RunInputs run all inputs plugin.
 func (c *Config) RunInputs() (err error) {
-	_, err = c.Injector.Invoke(c.runInputs)
+	rvs, err := c.Injector.Invoke(c.runInputs)
+	if !rvs[0].IsNil() {
+		err = rvs[0].Interface().(error)
+	}
 	return
 }
 
@@ -49,10 +52,8 @@ func (c *Config) StopInputs() (err error) {
 // stopInputs
 func (c *Config) stopInputs(inputs []InputPlugin) (err error) {
 	for _, input := range inputs {
-		Logger.Infof("Stopping input plugin %s.", input.GetType())
 		input.Stop()
 	}
-	Logger.Infoln("Input plugins all stopped.")
 	return
 }
 
@@ -76,7 +77,7 @@ func (c *Config) getInputs(inchan InChan) (inputs []InputPlugin, err error) {
 	for _, part := range c.InputPart {
 		handler, ok := mapInputHandler[part["type"].(string)]
 		if !ok {
-			return []InputPlugin{}, errors.New(part["type"].(string))
+			return []InputPlugin{}, errors.New("unknow input plugin type " + part["type"].(string))
 		}
 
 		// build input plugin injector.

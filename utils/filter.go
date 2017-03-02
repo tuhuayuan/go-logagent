@@ -40,7 +40,10 @@ func RegistFilterHandler(name string, handler FilterHandler) {
 func (c *Config) RunFilters() (err error) {
 	c.Injector.Map(make(filterExitSignal, 1))
 	c.Injector.Map(make(filterExitChan, 1))
-	_, err = c.Injector.Invoke(c.runFilters)
+	rvs, err := c.Injector.Invoke(c.runFilters)
+	if !rvs[0].IsNil() {
+		err = rvs[0].Interface().(error)
+	}
 	return
 }
 
@@ -60,6 +63,7 @@ func (c *Config) stopFilters(es filterExitSignal, ec filterExitChan) error {
 func (c *Config) runFilters(inchan InChan, outchan OutChan, es filterExitSignal, ec filterExitChan) (err error) {
 	filters, err := c.getFilters()
 	if err != nil {
+		Logger.Errorf("Run filters error %q", err)
 		return
 	}
 
@@ -90,7 +94,7 @@ func (c *Config) getFilters() (filters []FilterPlugin, err error) {
 	for _, part := range c.FilterPart {
 		handler, ok := mapFilterHandler[part["type"].(string)]
 		if !ok {
-			return []FilterPlugin{}, errors.New(part["type"].(string))
+			return []FilterPlugin{}, errors.New("unknow filter type " + part["type"].(string))
 		}
 
 		inj := inject.New()

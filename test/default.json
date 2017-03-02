@@ -1,14 +1,19 @@
 {
     "input": [
         {
-            "type": "stdin"
+            "type": "stdin",
+            "prefix": "[logagent#] "
         }
     ],
     "filter": [
         {
             "type": "patch",
             "key": "from",
-            "value": "dd"
+            "value": "stdin"
+        },
+        {
+            "type": "grok",
+            "match": "(?P<input>.*)"
         }
     ],
     "output": [
