@@ -1,6 +1,16 @@
 # LogAgent 
 
+## 依赖
+
+包依赖管理工具http://glide.sh
+
+curl https://glide.sh/get | sh
+
 ## 快速上手
+
+glide up
+
+glide install
 
 go build
 
