@@ -20,9 +20,9 @@ type PluginConfig struct {
 	utils.InputPluginConfig
 	Prefix string `json:"prefix"`
 
-	hostname    string
-	exitSignal  chan bool
-	inputSignal chan string
+	hostname  string
+	exitChan  chan int
+	inputChan chan string
 }
 
 func init() {
@@ -37,8 +37,8 @@ func InitHandler(part *utils.ConfigPart) (plugin *PluginConfig, err error) {
 				Type: PluginName,
 			},
 		},
-		exitSignal:  make(chan bool, 1),
-		inputSignal: make(chan string, 1),
+		exitChan:  make(chan int),
+		inputChan: make(chan string),
 	}
 	if err = utils.ReflectConfigPart(part, &config); err != nil {
 		return
@@ -57,10 +57,10 @@ func (plugin *PluginConfig) Start() {
 
 // Stop stop it.
 func (plugin *PluginConfig) Stop() {
-	plugin.exitSignal <- true
+	close(plugin.exitChan)
 }
 
-func (plugin *PluginConfig) loopRead(inchan utils.InChan) (err error) {
+func (plugin *PluginConfig) loopRead(inChan utils.InputChannel) (err error) {
 	go func(plugin *PluginConfig) {
 		reader := bufio.NewReader(os.Stdin)
 		for {
@@ -69,15 +69,15 @@ func (plugin *PluginConfig) loopRead(inchan utils.InChan) (err error) {
 			if err == io.EOF {
 				return
 			}
-			plugin.inputSignal <- string(data)
+			plugin.inputChan <- string(data)
 		}
 	}(plugin)
 
 	for {
 		select {
-		case <-plugin.exitSignal:
+		case <-plugin.exitChan:
 			return
-		case input := <-plugin.inputSignal:
+		case input := <-plugin.inputChan:
 			event := utils.LogEvent{
 				Timestamp: time.Now(),
 				Message:   input,
@@ -85,7 +85,7 @@ func (plugin *PluginConfig) loopRead(inchan utils.InChan) (err error) {
 					"host": plugin.hostname,
 				},
 			}
-			inchan <- event
+			inChan.Input(event)
 		}
 	}
 }

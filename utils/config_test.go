@@ -8,9 +8,17 @@ import (
 	"github.com/stretchr/testify/assert"
 )
 
+func Test_LoadFromDir(t *testing.T) {
+	path := "../test"
+	data := "../tmp/queue"
+	configs, err := LoadFromDir(path, data)
+	assert.NoError(t, err)
+	assert.Len(t, configs, 1)
+	assert.Equal(t, "default", configs[0].Name)
+}
+
 func Test_LoadFromString(t *testing.T) {
-	t.Run("Load good json config.", func(t *testing.T) {
-		c, err := LoadFromString(`
+	c, err := LoadFromString(`
 		{
 			"input": [{
 				"type": "file",
@@ -20,9 +28,8 @@ func Test_LoadFromString(t *testing.T) {
 			}]
 		}
 		`)
-		assert.NoError(t, err)
-		assert.Equal(t, "file", c.InputPart[0]["type"])
-	})
+	assert.NoError(t, err)
+	assert.Equal(t, "file", c.InputPart[0]["type"])
 }
 
 func Test_LoadFromNode(t *testing.T) {
@@ -30,7 +37,7 @@ func Test_LoadFromNode(t *testing.T) {
 		"http://localhost:2379",
 	}
 	agent := "gameserver-test-001"
-	CmdAgentName(agent)
+
 	cfg := client.Config{
 		Endpoints: eps,
 		Transport: client.DefaultTransport,
@@ -39,8 +46,20 @@ func Test_LoadFromNode(t *testing.T) {
 	assert.NoError(t, err)
 	api := client.NewKeysAPI(c)
 	key := "/zonst.org/logagent/" + agent + "/"
+	data := "../tmp/queue"
+	config := `
+	{
+		"name": "test-config"
+	}
+	`
+	// clear
 	api.Delete(context.Background(), key, nil)
-	api.Set(context.Background(), key, Defaultconfig, nil)
-	_, err = LoadFromNode(eps, key)
+	// set config
+	api.Set(context.Background(), key, "", &client.SetOptions{Dir: true})
+	api.Set(context.Background(), key+"default", config, nil)
+	// load
+	configs, err := LoadFromNode(eps, key, data)
 	assert.NoError(t, err)
+	assert.Len(t, configs, 1)
+	assert.Equal(t, "test-config", configs[0].Name)
 }

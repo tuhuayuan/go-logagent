@@ -2,69 +2,71 @@ package utils
 
 import (
 	"testing"
-
 	"time"
+	"zonst/tuhuayuan/logagent/queue"
+
+	"bytes"
+	"encoding/gob"
 
 	"github.com/stretchr/testify/assert"
 )
 
 type TestFilterPlugin struct {
 	FilterPluginConfig
-
-	Name string `json:"name"`
 }
 
 var (
 	testFilterPlugin = &TestFilterPlugin{}
-	tfpIndex         = 0
+	testOutputChan   = make(chan LogEvent, 1)
 )
 
 func InitTestFilterPlugin(part *ConfigPart) *TestFilterPlugin {
-	ReflectConfigPart(part, &testFilterPlugin)
+	ReflectConfigPart(part, testFilterPlugin)
 	return testFilterPlugin
 }
 
-func (tp *TestFilterPlugin) Process(before LogEvent) LogEvent {
-	before.Message += " tuhuayuan"
-	return before
+func (plugin *TestFilterPlugin) Output(ev LogEvent) error {
+	testOutputChan <- ev
+	return nil
 }
-
-func fakeInput(input InChan) {
-	input <- LogEvent{
-		Timestamp: time.Now(),
-		Message:   "hello",
-		Tags:      []string{},
-		Extra:     map[string]interface{}{"index": tfpIndex},
-	}
-	tfpIndex++
-}
-
-func fakeOutput(output OutChan) LogEvent {
-	return <-output
+func (plugin *TestFilterPlugin) Process(ev LogEvent) LogEvent {
+	return ev
 }
 
 func Test_RunFilters(t *testing.T) {
-	RegistFilterHandler("test", InitTestFilterPlugin)
+	RegistFilterHandler("test_filter", InitTestFilterPlugin)
 	config, err := LoadFromString(`
 	{
 		"filter": [{
-			"type": "test",
-			"name": "tuhuayuan"
+			"type": "test_filter"
 		}]
 	}
 	`)
-	assert.NoError(t, err, "load config from string return an error")
+	assert.NoError(t, err)
+	dq := queue.New(config.Name, config.DataPath,
+		1024*1024*1024,
+		0,
+		1024*1024*10,
+		1024,
+		1*time.Second,
+		Logger)
+	buf := bytes.Buffer{}
+	enc := gob.NewEncoder(&buf)
+	dec := gob.NewDecoder(&buf)
+	config.Map(&buf)
+	config.Map(enc)
+	config.Map(dec)
+	config.Map(dq)
+	config.MapTo(testFilterPlugin, (*OutputChannel)(nil))
+
 	err = config.RunFilters()
 	assert.NoError(t, err)
-	config.Injector.Invoke(fakeInput)
-	config.Injector.Invoke(fakeInput)
-	config.Injector.Map(t)
-	v1, err := config.Injector.Invoke(fakeOutput)
-	e1 := v1[0].Interface().(LogEvent)
-	v2, err := config.Injector.Invoke(fakeOutput)
-	e2 := v2[0].Interface().(LogEvent)
-	assert.Equal(t, e2.Message, "hello tuhuayuan", "filter process error.")
-	assert.True(t, e1.Extra["index"].(int) < e2.Extra["index"].(int))
+
+	enc.Encode(LogEvent{
+		Message: "test",
+	})
+	dq.Put(buf.Bytes())
+	assert.Equal(t, (<-testOutputChan).Message, "test")
 	err = config.StopFilters()
 	assert.NoError(t, err)
 }

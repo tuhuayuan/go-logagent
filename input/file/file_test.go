@@ -11,6 +11,7 @@ import (
 	"bufio"
 	"bytes"
 	"sync"
+	"zonst/tuhuayuan/logagent/queue"
 	"zonst/tuhuayuan/logagent/utils"
 )
 
@@ -62,38 +63,26 @@ func Test_readLine(t *testing.T) {
 	assert.Equal(t, 148, size)
 }
 
-var inChan utils.InChan
-
-func getInChan(in utils.InChan) {
-	inChan = in
-}
-
 func Test_Run(t *testing.T) {
-	os.Remove(sincdb)
-	plugin, err := utils.LoadFromString(config)
+	os.Remove("../../tmp/since/sincedb")
+	plugin, err := utils.LoadFromString(`{
+		"input": [{
+			"type": "file",
+			"dirspath": ["../../tmp/log"],
+			"sincepath": "../../tmp/since/sincedb",
+			"follow": false
+		}]
+	}`)
 	assert.NoError(t, err)
-	_, err = plugin.Injector.Invoke(getInChan)
-	assert.NoError(t, err)
+
 	err = plugin.RunInputs()
 	assert.NoError(t, err)
-
-	timeout := make(chan bool)
-	go func() {
-		time.Sleep(2 * time.Second)
-		timeout <- true
-	}()
-	fi, err := os.Stat("../../tmp/log/golang.log")
-	fmt.Println(fi.Size())
-	var event utils.LogEvent
-	for {
-		select {
-		case <-timeout:
-			assert.Equal(t, 1180, int(event.Extra["offset"].(int64)))
-			return
-		case event = <-inChan:
-			fmt.Printf("Message %s,  size %d, offset %d \n", event.Message, event.Extra["size"], event.Extra["offset"])
-		}
-	}
+	plugin.Invoke(func(dq queue.Queue) {
+		fmt.Println(<-dq.ReadChan())
+	})
+	plugin.Invoke(func(dq queue.Queue) {
+		fmt.Println(<-dq.ReadChan())
+	})
 }
 
 func Test_StartStop(t *testing.T) {
@@ -109,7 +98,7 @@ func Test_StartStop(t *testing.T) {
 	plugin, err := utils.LoadFromString(config)
 	assert.NoError(t, err)
 	plugin.RunInputs()
-	time.Sleep(2 * time.Second)
+	time.Sleep(1 * time.Second)
 	plugin.StopInputs()
 }
 
@@ -125,34 +114,20 @@ func Test_Tail(t *testing.T) {
 	}`
 	plugin, err := utils.LoadFromString(config)
 	assert.NoError(t, err)
+
 	plugin.RunInputs()
-	time.Sleep(2 * time.Second)
-	_, err = plugin.Injector.Invoke(getInChan)
 	assert.NoError(t, err)
-	f, err := os.OpenFile("../../tmp/log2/append.log", os.O_APPEND|os.O_WRONLY, os.ModeAppend)
+	f, err := os.OpenFile("../../tmp/log2/append.log", os.O_APPEND|os.O_WRONLY, 0600)
 	assert.NoError(t, err)
 	defer f.Close()
-	w := bufio.NewWriter(f)
-	var c int
-	c, err = w.WriteString("test line1 \n")
+	time.Sleep(1 * time.Second)
+	c, err := f.WriteString("test message line1 \n")
 	fmt.Println(c, err)
-	c, err = w.WriteString("test line2 \r\n")
+	c, err = f.WriteString("line2\n")
 	fmt.Println(c, err)
-	err = w.Flush()
-	assert.NoError(t, err)
+	f.Close()
 
-	timeout := make(chan bool)
-	go func() {
-		time.Sleep(2 * time.Second)
-		timeout <- true
-	}()
-	var event utils.LogEvent
-	for {
-		select {
-		case <-timeout:
-			return
-		case event = <-inChan:
-			fmt.Printf("Message %s,  size %d, offset %d \n", event.Message, event.Extra["size"], event.Extra["offset"])
-		}
-	}
+	plugin.Invoke(func(dq queue.Queue) {
+		fmt.Println(<-dq.ReadChan())
+	})
 }

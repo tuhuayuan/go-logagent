@@ -21,6 +21,7 @@ import (
 var (
 	sentinel  = flag.Bool("sentinel", false, "Sentinel mode.")
 	configDir = flag.String("configs", "/etc/logagent", "Directory of config files.")
+	dataDir   = flag.String("data", "/var/logagent", "Directory of disk data to be store.")
 	etcdHosts = flag.String("endpoints", "", "Endpoints of etcd.")
 	agentName = flag.String("name", "", "Global agent name.")
 	level     = flag.Int("v", 3, "Logger level 0(panic)~5(debug).")

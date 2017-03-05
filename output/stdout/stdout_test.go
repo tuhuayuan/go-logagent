@@ -1,7 +1,6 @@
 package outputstdout
 
 import (
-	"reflect"
 	"testing"
 	"time"
 
@@ -15,24 +14,25 @@ func init() {
 }
 
 func Test_All(t *testing.T) {
-	conf, err := utils.LoadFromString(`{
+	plugin, err := utils.LoadFromString(`{
 		"output": [{
 			"type": "stdout"
 		}]
 	}`)
 
-	err = conf.RunOutputs()
+	err = plugin.RunOutputs()
 	assert.NoError(t, err)
-
-	outchan := conf.Get(reflect.TypeOf(make(utils.OutChan))).
-		Interface().(utils.OutChan)
-	outchan <- utils.LogEvent{
+	ev := utils.LogEvent{
 		Timestamp: time.Now(),
 		Message:   "new message",
 		Extra: map[string]interface{}{
 			"name": "tuhuayuan",
 		},
 	}
-
-	time.Sleep(2 * time.Second)
+	_, err = plugin.Invoke(func(outChan utils.OutputChannel) {
+		err = outChan.Output(ev)
+	})
+	assert.NoError(t, err)
+	err = plugin.StopOutputs()
+	assert.NoError(t, err)
 }

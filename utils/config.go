@@ -4,11 +4,15 @@ import (
 	"bytes"
 	"context"
 	"encoding/json"
+	"fmt"
 	"io/ioutil"
 	"os"
+	"path/filepath"
 	"reflect"
 	"regexp"
+	"strconv"
 	"strings"
+	"time"
 
 	"errors"
 
@@ -38,14 +42,23 @@ type Config struct {
 	InputPart       []ConfigPart `json:"input"`
 	FilterPart      []ConfigPart `json:"filter"`
 	OutputPart      []ConfigPart `json:"output"`
+
+	Name     string `json:"name"`
+	DataPath string `json:"data_path"`
 }
 
-// InChan input channel
-type InChan chan LogEvent
+// InputChannel .
+type InputChannel interface {
+	Input(ev LogEvent) error
+}
 
-// OutChan output channel
+// OutputChannel .
+type OutputChannel interface {
+	Output(ev LogEvent) error
+}
 type OutChan chan LogEvent
 
+// Check reflect invoke error
 func checkError(refvs []reflect.Value) (err error) {
 	for _, refv := range refvs {
 		if refv.IsValid() {
@@ -69,7 +82,7 @@ func (c *TypePluginConfig) GetType() string {
 	return c.Type
 }
 
-// Invoke invoke f with reflected value.
+// Invoke invoke than check and return the actual error
 func (c *TypePluginConfig) Invoke(f interface{}) (refvs []reflect.Value, err error) {
 	if refvs, err = c.Injector.Invoke(f); err != nil {
 		return
@@ -79,8 +92,10 @@ func (c *TypePluginConfig) Invoke(f interface{}) (refvs []reflect.Value, err err
 }
 
 // LoadFromDir load from file path.
-func LoadFromDir(path string) (configs []Config, err error) {
-	fi, err := os.Stat(path)
+// configPath string where the config files to be load
+// dataPath string where the diskqueue to be store
+func LoadFromDir(configPath string, dataPath string) (configs []Config, err error) {
+	fi, err := os.Stat(configPath)
 	if err != nil {
 		return
 	}
@@ -89,20 +104,22 @@ func LoadFromDir(path string) (configs []Config, err error) {
 		return
 
 	}
-	flist, err := FileList(path, "json")
+	fs, err := FileList(configPath, "json")
 	if err != nil {
-		err = errors.New("config path error " + err.Error())
+		err = errors.New("read config files error " + err.Error())
 		return
 	}
-	for _, f := range flist {
-		data, err := ioutil.ReadFile(f)
+	for _, configFile := range fs {
+		data, err := ioutil.ReadFile(configFile)
 		if err != nil {
 			Logger.Warnf("Read config file error %s", err)
 			continue
 		}
-		config, err := LoadFromData(data)
+		configName := filepath.Base(configFile)
+		configName = strings.TrimSuffix(configName, filepath.Ext(configName))
+		config, err := LoadFromData(data, configName, dataPath)
 		if err != nil {
-			Logger.Warnf("Load config from date  %s", err)
+			Logger.Warnf("Load config file error %s", err)
 			continue
 		}
 		configs = append(configs, config)
@@ -112,27 +129,33 @@ func LoadFromDir(path string) (configs []Config, err error) {
 
 // LoadFromString load from golang string.
 func LoadFromString(text string) (config Config, err error) {
-	return LoadFromData([]byte(text))
+	configName := "config_" + strconv.Itoa(int(time.Now().Unix()))
+	dataPath, _ := ioutil.TempDir("", fmt.Sprintf("config-%d", time.Now().UnixNano()))
+	return LoadFromData([]byte(text), configName, dataPath)
 }
 
 // LoadFromNode load config from etcd node.
-func LoadFromNode(endpoints []string, root string) (configs []Config, err error) {
+// endpoints []string
+// root string  path key of the configs
+// dataDir string
+func LoadFromNode(endpoints []string, root string, dataDir string) (configs []Config, err error) {
 	cfg := client.Config{
 		Endpoints: endpoints,
 		Transport: client.DefaultTransport,
 	}
 	c, err := client.New(cfg)
 	if err != nil {
-		Logger.Errorln("Etcd client error.")
+		Logger.Error("Etcd client error.")
 		return
 	}
 	api := client.NewKeysAPI(c)
 	resp, err := api.Get(context.Background(), root, nil)
 	if err != nil || !resp.Node.Dir {
+		Logger.Warn("Etcd node is not directory.")
 		return
 	}
 	for _, n := range resp.Node.Nodes {
-		conf, err := LoadFromString(n.Value)
+		conf, err := LoadFromData([]byte(n.Value), n.Key, dataDir)
 		if err != nil {
 			Logger.Warnln("LoadFromNode found a error config node.")
 			continue
@@ -142,24 +165,30 @@ func LoadFromNode(endpoints []string, root string) (configs []Config, err error)
 	return configs, nil
 }
 
-// LoadFromData do the actual work.
-func LoadFromData(data []byte) (config Config, err error) {
+// LoadFromData build config from the []byte
+// data []byte config json data
+// configName string name of config
+// dataPath string path the diskqueue data will be
+func LoadFromData(data []byte, configName string, dataPath string) (config Config, err error) {
 	if data, err = cleanComments(data); err != nil {
 		return
 	}
-
 	if err = json.Unmarshal(data, &config); err != nil {
 		Logger.Errorf("LoadFromDate json unmarshal error %s", err)
 		return
 	}
+	if config.Name == "" {
+		config.Name = configName
+	}
+	if config.DataPath == "" {
+		config.DataPath = dataPath
+	}
 
 	config.Injector = inject.New()
+
+	outchan := make(OutChan)
+
 	config.Map(Logger)
-
-	inchan := make(InChan, 100)
-	outchan := make(OutChan, 100)
-
-	config.Map(inchan)
 	config.Map(outchan)
 
 	rv := reflect.ValueOf(&config)
@@ -230,16 +259,6 @@ func cleanComments(data []byte) (out []byte, err error) {
 	}
 
 	out = bytes.Join(filtered, []byte("\n"))
-	return
-}
-
-// InvokeSimple do invoke on injector.
-func (c *Config) InvokeSimple(arg interface{}) (err error) {
-	refvs, err := c.Injector.Invoke(arg)
-	if err != nil {
-		return
-	}
-	err = checkError(refvs)
 	return
 }
 

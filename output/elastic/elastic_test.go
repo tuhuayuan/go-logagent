@@ -1,20 +1,19 @@
 package outputelastic
 
 import (
-	"reflect"
 	"testing"
-	"zonst/tuhuayuan/logagent/utils"
-
 	"time"
 
 	"github.com/stretchr/testify/assert"
+
+	"zonst/tuhuayuan/logagent/utils"
 )
 
 func init() {
 	utils.RegistOutputHandler(PluginName, InitHandler)
 }
 
-func Test_Init(t *testing.T) {
+func Test_Run(t *testing.T) {
 	config := `
     {
         "output": [
@@ -27,18 +26,24 @@ func Test_Init(t *testing.T) {
         ]
     }
     `
+
 	plugin, err := utils.LoadFromString(config)
 	assert.NoError(t, err)
-	plugin.RunOutputs()
+	err = plugin.RunOutputs()
+	assert.NoError(t, err)
 
-	outchan := plugin.Get(reflect.TypeOf(make(utils.OutChan))).
-		Interface().(utils.OutChan)
-	outchan <- utils.LogEvent{
+	ev := utils.LogEvent{
 		Timestamp: time.Now(),
 		Message:   "new message",
 		Extra: map[string]interface{}{
 			"name": "tuhuayuan",
 		},
 	}
+
+	_, err = plugin.Invoke(func(outChan utils.OutputChannel) {
+		err = outChan.Output(ev)
+	})
+	assert.NoError(t, err)
 	plugin.StopOutputs()
+	assert.NoError(t, err)
 }

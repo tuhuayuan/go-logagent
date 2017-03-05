@@ -23,10 +23,10 @@ type PluginConfig struct {
 	DataType string `json:"data_type"`
 	Timeout  int    `json:"timeout"`
 
-	pool       *redis.Pool
-	bufChan    chan utils.LogEvent
-	exitSignal chan bool
-	exitNotify chan bool
+	pool         *redis.Pool
+	bufChan      chan utils.LogEvent
+	exitChan     chan int
+	exitSyncChan chan int
 }
 
 func init() {
@@ -42,9 +42,9 @@ func InitHandler(part *utils.ConfigPart) (plugin *PluginConfig, err error) {
 			},
 		},
 
-		bufChan:    make(chan utils.LogEvent, 1024),
-		exitSignal: make(chan bool, 1),
-		exitNotify: make(chan bool),
+		bufChan:      make(chan utils.LogEvent),
+		exitChan:     make(chan int),
+		exitSyncChan: make(chan int),
 	}
 	if err = utils.ReflectConfigPart(part, &conf); err != nil {
 		return
@@ -91,8 +91,8 @@ func (plugin *PluginConfig) Process(event utils.LogEvent) (err error) {
 
 // Stop stop loopEvent goroutine
 func (plugin *PluginConfig) Stop() {
-	plugin.exitSignal <- true
-	<-plugin.exitNotify
+	plugin.exitChan <- 1
+	<-plugin.exitSyncChan
 }
 
 // loopEvent
@@ -125,14 +125,11 @@ func (plugin *PluginConfig) loopEvent() (err error) {
 			if err != nil {
 				utils.Logger.Warnf("Redis error %q, log lost.", err)
 			}
-		case <-plugin.exitSignal:
-			if len(plugin.bufChan) > 0 {
-				plugin.exitSignal <- true
-			} else {
-				plugin.pool.Close()
-				plugin.exitNotify <- true
-				return
-			}
+		case <-plugin.exitChan:
+			plugin.pool.Close()
+			close(plugin.bufChan)
+			close(plugin.exitSyncChan)
+			return
 		}
 	}
 }

@@ -26,7 +26,7 @@ func Test_AddTag(t *testing.T) {
 	assert.Len(t, le.Tags, 3)
 }
 
-func Test_getJSONMap(t *testing.T) {
+func Test_GetMap(t *testing.T) {
 	le := &LogEvent{
 		Timestamp: time.Now(),
 		Message:   "message",
@@ -36,7 +36,7 @@ func Test_getJSONMap(t *testing.T) {
 			"UserID": "tuhuayuan",
 		},
 	}
-	jm := le.getJSONMap()
+	jm := le.GetMap()
 	d, err := json.Marshal(jm)
 	assert.NoError(t, err)
 	fmt.Println(string(d))

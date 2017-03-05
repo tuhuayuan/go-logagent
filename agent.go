@@ -15,9 +15,9 @@ func runAgent() int {
 		running bool
 	)
 	if *etcdHosts != "" {
-		configs, err = utils.LoadFromNode(getEtcdList(), getEtcdPath())
+		configs, err = utils.LoadFromNode(getEtcdList(), getEtcdPath(), *dataDir)
 	} else {
-		configs, err = utils.LoadFromDir(*configDir)
+		configs, err = utils.LoadFromDir(*configDir, *dataDir)
 	}
 
 	if err != nil {

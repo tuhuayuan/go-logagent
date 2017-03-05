@@ -1,79 +1,53 @@
 package utils
 
 import (
-	"testing"
-	"time"
-
 	"fmt"
+	"testing"
 
 	"github.com/stretchr/testify/assert"
 )
 
 type TestOutputPlugin struct {
 	OutputPluginConfig
-
-	OutputFile string `json:"file"`
-	Speed      int    `json:"speed"`
 }
 
 var (
-	testOutput      = &TestOutputPlugin{}
-	fakeDestination = make(OutChan, 2)
+	testOutputPluin = &TestOutputPlugin{}
+	outputChan      = make(chan LogEvent, 1)
 )
 
-func (tp *TestOutputPlugin) Process(e LogEvent) (err error) {
-	fakeDestination <- e
+func (plugin *TestOutputPlugin) Process(ev LogEvent) (err error) {
+	fmt.Println(ev)
+	outputChan <- ev
 	return
 }
 
-func (tp *TestOutputPlugin) Stop() {
-
+func (plugin *TestOutputPlugin) Stop() {
 }
 
-func InitTestOutputPlugin(config *ConfigPart) (*TestOutputPlugin, error) {
-	err := ReflectConfigPart(config, testOutput)
-	if err != nil {
-		return nil, err
-	}
-	return testOutput, nil
-}
-
-func fakeSource(output OutChan) {
-	output <- LogEvent{
-		Timestamp: time.Now(),
-		Message:   "hello",
-		Tags:      []string{},
-		Extra:     map[string]interface{}{"index": 0},
-	}
-
-	output <- LogEvent{
-		Timestamp: time.Now(),
-		Message:   "hello",
-		Tags:      []string{},
-		Extra:     map[string]interface{}{"index": 1},
-	}
+func InitTestOutputPlugin(config *ConfigPart) *TestOutputPlugin {
+	ReflectConfigPart(config, testOutputPluin)
+	return testOutputPluin
 }
 
 func Test_RunOutputs(t *testing.T) {
+	RegistOutputHandler("test_output", InitTestOutputPlugin)
 	config, err := LoadFromString(`
 	{
 		"output": [{
-			"type": "test",
-			"file": "memory://tmp",
-			"speed": 1
+			"type": "test_output"
 		}]
 	}
 	`)
 	assert.NoError(t, err)
-	RegistOutputHandler("test", InitTestOutputPlugin)
-	config.RunOutputs()
-	assert.Equal(t, testOutput.Speed, 1)
-	config.Injector.Invoke(fakeSource)
-	for i := 0; i < 2; i++ {
-		e := <-fakeDestination
-		fmt.Println(e)
-		assert.Equal(t, i, e.Extra["index"].(int), "message index error")
-	}
+	err = config.RunOutputs()
+	assert.NoError(t, err)
+	_, err = testOutputPluin.Invoke(func(output OutputChannel) {
+		fmt.Println(output)
+		output.Output(LogEvent{})
+	})
+	assert.NoError(t, err)
+	<-outputChan
 	err = config.StopOutputs()
 	assert.NoError(t, err)
 }

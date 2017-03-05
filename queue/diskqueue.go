@@ -16,44 +16,40 @@ import (
 	"sync"
 	"sync/atomic"
 	"time"
+
+	"github.com/Sirupsen/logrus"
 )
 
-// Logger used to customer logger.
-type Logger interface {
-	Output(maxdepth int, s string) error
-}
-
-// Queue Api of FIFO diskqueue.
+// Queue FIFO队列API
 type Queue interface {
-	Put([]byte) error
-	ReadChan() chan []byte // this is expected to be an *unbuffered* channel
-	Close() error
+	Put([]byte) error      // 将数据存入队列
+	PeekChan() chan []byte // 查看通道，不会前移指针
+	ReadChan() chan []byte // 读取通道
+	Close() error          // 关闭队列
 	Delete() error
-	Depth() int64
-	Empty() error
+	Depth() int64 // 返回队列长度
+	Empty() error // 清空队列数据
 }
 
-// diskQueue implements a filesystem backed FIFO queue
+// diskQueue
 type diskQueue struct {
-	// 64bit atomic vars need to be first for proper alignment on 32bit platforms
+	sync.RWMutex
 
-	// run-time state (also persisted to disk)
+	// 当前磁盘文件读取状态
 	readPos      int64
 	writePos     int64
 	readFileNum  int64
 	writeFileNum int64
 	depth        int64
 
-	sync.RWMutex
-
-	// instantiation time metadata
-	name            string
-	dataPath        string
-	maxBytesPerFile int64 // currently this cannot change once created
-	minMsgSize      int32
-	maxMsgSize      int32
-	syncEvery       int64         // number of writes per fsync
-	syncTimeout     time.Duration // duration of time per fsync
+	// 队列属性
+	name            string        // 名称
+	dataPath        string        // 数据文件存储路径
+	maxBytesPerFile int64         // 每个数据文件最大大小
+	minMsgSize      int32         // 消息允许的最小长度
+	maxMsgSize      int32         // 消息允许的最大长度
+	syncEvery       int64         // 写多少次同步一次
+	syncTimeout     time.Duration // 过多长时间同步一次
 	exitFlag        int32
 	needSync        bool
 
@@ -67,8 +63,9 @@ type diskQueue struct {
 	reader    *bufio.Reader
 	writeBuf  bytes.Buffer
 
-	// exposed via ReadChan()
+	// 读取通道
 	readChan chan []byte
+	peekChan chan []byte
 
 	// internal channels
 	writeChan         chan []byte
@@ -78,7 +75,7 @@ type diskQueue struct {
 	exitChan          chan int
 	exitSyncChan      chan int
 
-	logger Logger
+	logger *logrus.Logger
 }
 
 // New instantiates an instance of diskQueue, retrieving metadata
@@ -86,7 +83,7 @@ type diskQueue struct {
 func New(name string, dataPath string, maxBytesPerFile int64,
 	minMsgSize int32, maxMsgSize int32,
 	syncEvery int64, syncTimeout time.Duration,
-	logger Logger) Queue {
+	logger *logrus.Logger) Queue {
 	d := diskQueue{
 		name:              name,
 		dataPath:          dataPath,
@@ -94,6 +91,7 @@ func New(name string, dataPath string, maxBytesPerFile int64,
 		minMsgSize:        minMsgSize,
 		maxMsgSize:        maxMsgSize,
 		readChan:          make(chan []byte),
+		peekChan:          make(chan []byte),
 		writeChan:         make(chan []byte),
 		writeResponseChan: make(chan error),
 		emptyChan:         make(chan int),
@@ -120,17 +118,22 @@ func (d *diskQueue) logf(f string, args ...interface{}) {
 	if d.logger == nil {
 		return
 	}
-	d.logger.Output(2, fmt.Sprintf(f, args...))
+	d.logger.Debugf(f, args...)
 }
 
-// Depth returns the depth of the queue
+// Depth
 func (d *diskQueue) Depth() int64 {
 	return atomic.LoadInt64(&d.depth)
 }
 
-// ReadChan returns the []byte channel for reading data
+// ReadChan
 func (d *diskQueue) ReadChan() chan []byte {
 	return d.readChan
+}
+
+// PeekChan
+func (d *diskQueue) PeekChan() chan []byte {
+	return d.peekChan
 }
 
 // Put writes a []byte to the queue
@@ -490,28 +493,21 @@ func (d *diskQueue) handleReadError() {
 	d.needSync = true
 }
 
-// ioLoop provides the backend for exposing a go channel (via ReadChan())
-// in support of multiple concurrent queue consumers
-//
-// it works by looping and branching based on whether or not the queue has data
-// to read and blocking until data is either read or written over the appropriate
-// go channels
-//
-// conveniently this also means that we're asynchronously reading from the filesystem
+// ioLoop IO主循环
 func (d *diskQueue) ioLoop() {
 	var dataRead []byte
 	var err error
 	var count int64
-	var r chan []byte
-
+	var r, p chan []byte
+	running := true
 	syncTicker := time.NewTicker(d.syncTimeout)
 
-	for {
-		// dont sync all the time :)
-		if count == d.syncEvery {
+	for running {
+		// 次数达到同步要求
+		if count >= d.syncEvery {
 			d.needSync = true
 		}
-
+		// 执行同步
 		if d.needSync {
 			err = d.sync()
 			if err != nil {
@@ -519,9 +515,10 @@ func (d *diskQueue) ioLoop() {
 			}
 			count = 0
 		}
-
+		// 判断是否有新消息可读，每个IO循环触发一次
 		if (d.readFileNum < d.writeFileNum) || (d.readPos < d.writePos) {
 			if d.nextReadPos == d.readPos {
+				// 执行底层读取
 				dataRead, err = d.readOne()
 				if err != nil {
 					d.logf("ERROR: reading from diskqueue(%s) at %d of %s - %s",
@@ -531,41 +528,45 @@ func (d *diskQueue) ioLoop() {
 				}
 			}
 			r = d.readChan
+			p = d.peekChan
 		} else {
 			r = nil
+			p = nil
 		}
 
 		select {
-		// the Go channel spec dictates that nil channel operations (read or write)
-		// in a select are skipped, we set r to d.readChan only when there is data to read
+		// Tips：向一个nil通道传数据，只是简单的block不会有出错
+		case p <- dataRead:
+			// 不移动读取位子
 		case r <- dataRead:
 			count++
-			// moveForward sets needSync flag if a file is removed
+			// 移动读取位子
 			d.moveForward()
 		case <-d.emptyChan:
+			// 清空数据
 			d.emptyResponseChan <- d.deleteAllFiles()
 			count = 0
 		case dataWrite := <-d.writeChan:
+			// 写入是同步的
 			count++
 			d.writeResponseChan <- d.writeOne(dataWrite)
 		case <-syncTicker.C:
+			// io间隔时钟
 			if count == 0 {
-				// avoid sync when there's no activity
 				continue
 			}
 			d.needSync = true
 		case <-d.exitChan:
-			goto exit
+			running = false
 		}
 	}
 
-exit:
 	d.logf("DISKQUEUE(%s): closing ... ioLoop", d.name)
 	syncTicker.Stop()
 	d.exitSyncChan <- 1
 }
 
-// retrieveMetaData initializes state from the filesystem
+// retrieveMetaData 读取元数据
 func (d *diskQueue) retrieveMetaData() error {
 	var f *os.File
 	var err error
@@ -592,7 +593,7 @@ func (d *diskQueue) retrieveMetaData() error {
 	return nil
 }
 
-// persistMetaData atomically writes state to the filesystem
+// persistMetaData 写入最新的元数据
 func (d *diskQueue) persistMetaData() error {
 	var f *os.File
 	var err error
@@ -621,17 +622,17 @@ func (d *diskQueue) persistMetaData() error {
 	return os.Rename(tmpFileName, fileName)
 }
 
-// get meta file path
+// metaDataFileName 格式化元数据文件路径
 func (d *diskQueue) metaDataFileName() string {
 	return fmt.Sprintf(path.Join(d.dataPath, "%s.diskqueue.meta.dat"), d.name)
 }
 
-// get queue data file path
+// fileName 格式化数据文件路径
 func (d *diskQueue) fileName(fileNum int64) string {
 	return fmt.Sprintf(path.Join(d.dataPath, "%s.diskqueue.%06d.dat"), d.name, fileNum)
 }
 
-// sync fsyncs the current writeFile and persists metadata
+// sync 同步当前写入文件和元数据文件
 func (d *diskQueue) sync() error {
 	if d.writeFile != nil {
 		err := d.writeFile.Sync()

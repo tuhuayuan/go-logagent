@@ -1,15 +1,15 @@
 package inputudp
 
 import (
-	"reflect"
-	"testing"
-	"zonst/tuhuayuan/logagent/utils"
-
-	"net"
-
 	"encoding/binary"
+	"fmt"
+	"net"
+	"testing"
 
 	"github.com/stretchr/testify/assert"
+
+	"zonst/tuhuayuan/logagent/queue"
+	"zonst/tuhuayuan/logagent/utils"
 )
 
 func init() {
@@ -38,9 +38,8 @@ func Test_Udp(t *testing.T) {
 	binary.BigEndian.PutUint16(data, 16)
 	n, err := conn.Write(data)
 	assert.Equal(t, 21, n)
-	inchan := plugin.Get(reflect.TypeOf(make(utils.InChan))).
-		Interface().(utils.InChan)
-	event := <-inchan
-	assert.True(t, "Log message 消息." == event.Message)
+	plugin.Invoke(func(dq queue.Queue) {
+		fmt.Println(<-dq.ReadChan())
+	})
 
 }

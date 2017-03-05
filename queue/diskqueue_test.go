@@ -1,36 +1,27 @@
 package queue
 
 import (
+	"bytes"
+	"encoding/gob"
 	"fmt"
 	"io/ioutil"
 	"os"
 	"strconv"
+	"sync"
 	"sync/atomic"
 	"testing"
 	"time"
-	"zonst/tuhuayuan/logagent/utils"
-
-	"bytes"
-	"encoding/gob"
-
-	"sync"
 
 	"github.com/Sirupsen/logrus"
 	"github.com/stretchr/testify/assert"
 )
 
-type testLogger struct {
-	*logrus.Logger
-}
-
-func (tl *testLogger) Output(maxdepth int, s string) error {
-	tl.Info(s)
-	return nil
-}
-
-func NewTestLogger() Logger {
-	return &testLogger{
-		utils.Logger,
+func NewTestLogger() *logrus.Logger {
+	return &logrus.Logger{
+		Out:       os.Stdout,
+		Formatter: &logrus.TextFormatter{},
+		Hooks:     make(logrus.LevelHooks),
+		Level:     logrus.DebugLevel,
 	}
 }
 
@@ -58,6 +49,13 @@ func Test_DiskQueue(t *testing.T) {
 	assert.Equal(t, msg, msgOut)
 }
 
+type LogEvent struct {
+	Timestamp time.Time              `json:"timestamp"`
+	Message   string                 `json:"message"`
+	Tags      []string               `json:"tags,omitempty"`
+	Extra     map[string]interface{} `json:"-"`
+}
+
 // 测试一下LogEvent存取，还有测试下超过单文件大小
 func Test_MutilFile(t *testing.T) {
 	logger := NewTestLogger()
@@ -76,7 +74,7 @@ func Test_MutilFile(t *testing.T) {
 	// 文件指针会报错
 	// f1, _:= os.Open(TempDir)
 
-	eventSend := utils.LogEvent{
+	eventSend := LogEvent{
 		Timestamp: time.Now(),
 		Message:   "new message",
 		Extra: map[string]interface{}{
@@ -100,7 +98,7 @@ func Test_MutilFile(t *testing.T) {
 
 	dataBuf.Reset()
 	dataBuf.Write(<-dq.ReadChan())
-	var eventReciv utils.LogEvent
+	var eventReciv LogEvent
 	err = dec.Decode(&eventReciv)
 	assert.NoError(t, err)
 
@@ -212,7 +210,6 @@ func Test_Concurrency(t *testing.T) {
 	defer os.RemoveAll(tmpDir)
 
 	dq := New(dqName, tmpDir, 1024000, 0, 1<<10, 2500, 1*time.Second, logger)
-
 	msg := bytes.Repeat([]byte{0}, 64)
 
 	numWriters := 4
@@ -243,10 +240,10 @@ func Test_Concurrency(t *testing.T) {
 	time.Sleep(1 * time.Second)
 	dq.Close()
 
-	utils.Logger.Info("Closing")
+	logger.Info("Closing")
 	close(writerExitChan)
 	waiter.Wait()
-	utils.Logger.Info("Writer all stopped")
+	logger.Info("Writer all stopped")
 
 	dq = New(dqName, tmpDir, 1024000, 0, 1<<10, 2500, 1*time.Second, logger)
 	var read int64
@@ -277,4 +274,32 @@ func Test_Concurrency(t *testing.T) {
 	}
 
 	assert.Equal(t, read, depth)
+	dq.Close()
+}
+
+func Test_Peek(t *testing.T) {
+	logger := NewTestLogger()
+
+	dqName := "test_disk_queue_peek" + strconv.Itoa(int(time.Now().Unix()))
+	tmpDir, err := ioutil.TempDir("", fmt.Sprintf("nsq-test-%d", time.Now().UnixNano()))
+	assert.NoError(t, err)
+	defer os.RemoveAll(tmpDir)
+
+	dq := New(dqName, tmpDir, 1024000, 0, 1<<10, 2500, 1*time.Second, logger)
+	defer dq.Close()
+	msg := bytes.Repeat([]byte{1}, 64)
+
+	err = dq.Put(msg)
+	assert.NoError(t, err)
+
+	assert.Equal(t, msg, <-dq.PeekChan())
+	assert.Equal(t, msg, <-dq.PeekChan())
+	assert.Equal(t, msg, <-dq.ReadChan())
+	for {
+		if dq.Depth() == 0 {
+			break
+		}
+		time.Sleep(50 * time.Millisecond)
+	}
+	assert.Equal(t, int64(0), dq.Depth())
 }

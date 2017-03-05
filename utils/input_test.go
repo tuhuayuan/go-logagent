@@ -1,13 +1,9 @@
 package utils
 
 import (
-	"testing"
-
 	"fmt"
-
-	"reflect"
-
-	"time"
+	"testing"
+	"zonst/tuhuayuan/logagent/queue"
 
 	"github.com/stretchr/testify/assert"
 )
@@ -16,60 +12,39 @@ var testInputPlugin = &TestInputPlugin{}
 
 type TestInputPlugin struct {
 	InputPluginConfig
-	In       InChan `json:"-"`
-	From     string `json:"from"`
-	Username string `json:"username"`
+	InChan InputChannel `json:"-"`
 }
 
-func (tp *TestInputPlugin) Start() {
-	fmt.Println("Plugin started.")
-	testInputPlugin.In <- LogEvent{}
+func (plugin *TestInputPlugin) Start() {
+	plugin.InChan.Input(LogEvent{
+		Message: "test",
+	})
 }
 
-func (tp *TestInputPlugin) Stop() {
-	fmt.Println("Plugin stopping")
-	fmt.Printf("Flush all message %s\n", <-testInputPlugin.In)
-	fmt.Println("Plugin stopped")
+func (plugin *TestInputPlugin) Stop() {
 }
 
-func InitTestInputPlugin(pc *ConfigPart, inchan InChan) *TestInputPlugin {
-	ReflectConfigPart(pc, &testInputPlugin)
-	testInputPlugin.In = inchan
+func InitTestInputPlugin(part *ConfigPart, inchan InputChannel) *TestInputPlugin {
+	ReflectConfigPart(part, &testInputPlugin)
+	testInputPlugin.InChan = inchan
 	return testInputPlugin
 }
 
-func Test_NilInput(t *testing.T) {
-	RegistInputHandler("test_nil", func() *TestInputPlugin {
-		return nil
-	})
+func Test_RunInputs(t *testing.T) {
+	RegistInputHandler("test_input", InitTestInputPlugin)
 	config, err := LoadFromString(`
 	{
 		"input": [{
-			"type": "test_nil",
-			"from": "/var/test/*.log",
-			"username": "tuhuayuan"
+			"type": "test_input"
 		}]
 	}
 	`)
 	assert.NoError(t, err)
-	config.RunInputs()
-	time.Sleep(1 * time.Second)
-}
-
-func Test_RunInputs(t *testing.T) {
-	RegistInputHandler("test", InitTestInputPlugin)
-	config, err := LoadFromString(`
-	{
-		"input": [{
-			"type": "test",
-			"from": "/var/test/*.log",
-			"username": "tuhuayuan"
-		}]
-	}
-	`)
-	assert.NoError(t, err, "load from string return an error")
 	err = config.RunInputs()
 	assert.NoError(t, err, "run inputs return an error")
-	assert.Equal(t, testInputPlugin.Injector.Get(reflect.TypeOf(make(InChan))), reflect.ValueOf(testInputPlugin.In), "InChan not correct.")
+	config.Invoke(func(dq queue.Queue) {
+		raw := <-dq.ReadChan()
+		fmt.Println(raw)
+	})
 	err = config.StopInputs()
 }

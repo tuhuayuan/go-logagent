@@ -5,6 +5,7 @@ import (
 	"bytes"
 	"encoding/json"
 	"errors"
+	"fmt"
 	"io"
 	"io/ioutil"
 	"os"
@@ -184,7 +185,7 @@ func (plugin *PluginConfig) checkAndSaveSinceDB() (err error) {
 }
 
 // watch log files and emit logevent.
-func (plugin *PluginConfig) watch(inchan utils.InChan) (err error) {
+func (plugin *PluginConfig) watch(inChan utils.InputChannel) (err error) {
 	defer func() {
 		if err != nil {
 			utils.Logger.Errorf("File input plugin watch error %s", err)
@@ -247,7 +248,7 @@ func (plugin *PluginConfig) watch(inchan utils.InChan) (err error) {
 		// monitor file.
 		utils.Logger.Info("Watching ", fp)
 		readEventChan := make(chan fsnotify.Event, 10)
-		go plugin.loopRead(readEventChan, fp, inchan)
+		go plugin.loopRead(readEventChan, fp, inChan)
 		go plugin.loopWatch(readEventChan, fp, fsnotify.Create|fsnotify.Write)
 	}
 
@@ -258,7 +259,7 @@ func (plugin *PluginConfig) watch(inchan utils.InChan) (err error) {
 func (plugin *PluginConfig) loopRead(
 	readEventChan chan fsnotify.Event,
 	realPath string,
-	inchan utils.InChan,
+	inChan utils.InputChannel,
 ) (err error) {
 	var (
 		since     *SinceDBInfo
@@ -355,7 +356,7 @@ func (plugin *PluginConfig) loopRead(
 		}
 		since.Offset += int64(size)
 		// push log event to the pipeline.
-		inchan <- event
+		inChan.Input(event)
 		plugin.checkAndSaveSinceDB()
 	}
 
@@ -489,6 +490,7 @@ func waitWatchEvent(realPath string, op fsnotify.Op, lock *sync.RWMutex) (event 
 	for {
 		select {
 		case event = <-watcher.Events:
+			fmt.Println(event)
 			if event.Name == realPath {
 				if op > 0 {
 					// if this is create or write event

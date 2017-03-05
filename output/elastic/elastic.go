@@ -23,10 +23,10 @@ type PluginConfig struct {
 	Index    string `json:"index"`
 	DocType  string `json:"doc_type"`
 
-	conn       *elastigo.Conn
-	bufChan    chan utils.LogEvent
-	exitSignal chan bool
-	exitNotify chan bool
+	conn         *elastigo.Conn
+	bufChan      chan utils.LogEvent
+	exitChan     chan int
+	exitSyncChan chan int
 }
 
 func init() {
@@ -41,10 +41,10 @@ func InitHandler(part *utils.ConfigPart) (plugin *PluginConfig, err error) {
 				Type: PluginName,
 			},
 		},
-		conn:       elastigo.NewConn(),
-		bufChan:    make(chan utils.LogEvent, 1024),
-		exitSignal: make(chan bool, 1),
-		exitNotify: make(chan bool),
+		conn:         elastigo.NewConn(),
+		bufChan:      make(chan utils.LogEvent),
+		exitChan:     make(chan int),
+		exitSyncChan: make(chan int),
 	}
 	// read config
 	err = utils.ReflectConfigPart(part, &conf)
@@ -76,8 +76,8 @@ func (plugin *PluginConfig) Process(event utils.LogEvent) (err error) {
 
 // Stop stop loop.
 func (plugin *PluginConfig) Stop() {
-	plugin.exitSignal <- true
-	<-plugin.exitNotify
+	plugin.exitChan <- 1
+	<-plugin.exitSyncChan
 }
 
 // loopEvent
@@ -98,14 +98,11 @@ func (plugin *PluginConfig) loopEvent() (err error) {
 				utils.Logger.Warnf("Elastic: output index error %q", err)
 			}
 
-		case <-plugin.exitSignal:
-			if len(plugin.bufChan) > 0 {
-				plugin.exitSignal <- true
-			} else {
-				plugin.conn.Close()
-				plugin.exitNotify <- true
-				return
-			}
+		case <-plugin.exitChan:
+			plugin.conn.Close()
+			close(plugin.bufChan)
+			close(plugin.exitSyncChan)
+			return
 		}
 	}
 }

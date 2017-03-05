@@ -2,21 +2,19 @@ package grokfilter
 
 import (
 	"fmt"
-	"reflect"
 	"testing"
-
-	"zonst/tuhuayuan/logagent/utils"
-
 	"time"
 
 	"github.com/stretchr/testify/assert"
+
+	"zonst/tuhuayuan/logagent/utils"
 )
 
 func init() {
 	utils.RegistFilterHandler(PluginName, InitHandler)
 }
 
-func Test_All(t *testing.T) {
+func Test_Process(t *testing.T) {
 	conf, err := utils.LoadFromString(`{
 		"filter": [{
 			"type": "grok",
@@ -25,22 +23,16 @@ func Test_All(t *testing.T) {
 		}]
 	}`)
 	assert.NoError(t, err)
-	err = conf.RunFilters()
+	plugin, err := InitHandler(&conf.FilterPart[0])
 	assert.NoError(t, err)
-
-	inchan := conf.Get(reflect.TypeOf(make(utils.InChan))).
-		Interface().(utils.InChan)
-	outchan := conf.Get(reflect.TypeOf(make(utils.OutChan))).
-		Interface().(utils.OutChan)
-
-	inchan <- utils.LogEvent{
+	ev := utils.LogEvent{
 		Timestamp: time.Now(),
 		Message:   "[2017-02-21 15:53:48.881][warn][onSocketMessage][7][234][11] Frame::onSocketMessage enter. msg_id:1013,user_id:30691489, recv_time:[18]ms, frame_time[:1]ms",
 		Tags:      []string{},
 		Extra:     map[string]interface{}{},
 	}
-	event := <-outchan
-	fmt.Println(event.Extra)
-	assert.Equal(t, "2017-02-21 15:53:48.881", event.Extra["log_time"])
-	assert.Equal(t, "warn", event.Extra["log_level"])
+	ev = plugin.Process(ev)
+	fmt.Println(ev)
+	assert.Equal(t, "2017-02-21 15:53:48.881", ev.Extra["log_time"])
+	assert.Equal(t, "warn", ev.Extra["log_level"])
 }

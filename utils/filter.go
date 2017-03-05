@@ -1,12 +1,17 @@
 package utils
 
 import (
+	"bytes"
+	"encoding/gob"
 	"errors"
 
 	"github.com/codegangsta/inject"
+
+	"time"
+	"zonst/tuhuayuan/logagent/queue"
 )
 
-// FilterPlugin interface of all filter plugin.
+// FilterPlugin interface.
 type FilterPlugin interface {
 	TypePlugin
 	Process(LogEvent) LogEvent
@@ -17,17 +22,14 @@ type FilterPluginConfig struct {
 	TypePluginConfig
 }
 
-// FilterHandler type filter handler.
+// FilterHandler fctory interface type
 type FilterHandler interface{}
 
-// customer chan type for exit.
-type filterExitSignal chan bool
-
-// customer chan type for exit.
-type filterExitChan chan bool
+// customer channel type for inject
+type filterExitChan chan int
+type filterExitSyncChan chan int
 
 var (
-	// manage all filter handler
 	mapFilterHandler = map[string]FilterHandler{}
 )
 
@@ -36,55 +38,61 @@ func RegistFilterHandler(name string, handler FilterHandler) {
 	mapFilterHandler[name] = handler
 }
 
-// RunFilters start filter.
+// RunFilters run all filter plugin.
 func (c *Config) RunFilters() (err error) {
-	c.Injector.Map(make(filterExitSignal, 1))
-	c.Injector.Map(make(filterExitChan, 1))
-	rvs, err := c.Injector.Invoke(c.runFilters)
-	if !rvs[0].IsNil() {
-		err = rvs[0].Interface().(error)
-	}
+	c.Map(make(filterExitChan))
+	c.Map(make(filterExitSyncChan))
+	_, err = c.Invoke(c.runFilters)
 	return
 }
 
 // StopFilters try to stop filter gracefully.
 func (c *Config) StopFilters() (err error) {
-	_, err = c.Injector.Invoke(c.stopFilters)
+	_, err = c.Invoke(func(exit filterExitChan, exitSync filterExitSyncChan) {
+		exit <- 1
+		<-exitSync
+	})
 	return
 }
 
-func (c *Config) stopFilters(es filterExitSignal, ec filterExitChan) error {
-	es <- true
-	<-ec
-	return nil
-}
-
 // runFilters.
-func (c *Config) runFilters(inchan InChan, outchan OutChan, es filterExitSignal, ec filterExitChan) (err error) {
+func (c *Config) runFilters(outChan OutputChannel,
+	dq queue.Queue, buf *bytes.Buffer, dec *gob.Decoder,
+	exit filterExitChan, exitSync filterExitSyncChan) (err error) {
 	filters, err := c.getFilters()
 	if err != nil {
-		Logger.Errorf("Run filters error %q", err)
 		return
 	}
-
+	running := true
+	tick := time.NewTicker(100 * time.Millisecond)
 	go func() {
-		running := true
 		for running {
 			select {
-			case event := <-inchan:
+			case raw := <-dq.PeekChan():
+				event := LogEvent{}
+				buf.Reset()
+				if _, err = buf.Write(raw); err != nil {
+					goto next
+				}
+				if err = dec.Decode(&event); err != nil {
+					goto next
+				}
 				for _, filter := range filters {
-					// filter process on config order
 					event = filter.Process(event)
 				}
-				outchan <- event
-			case <-es:
-				if len(inchan) == 0 {
-					running = false
+				if err = outChan.Output(event); err != nil {
+					Logger.Warn("Filter output return error %s, message retry.", err)
+					continue
 				}
-				es <- true
+			next:
+				<-dq.ReadChan()
+			case <-tick.C:
+				// tick
+			case <-exit:
+				running = false
 			}
 		}
-		ec <- true
+		close(exitSync)
 	}()
 	return
 }
@@ -94,14 +102,16 @@ func (c *Config) getFilters() (filters []FilterPlugin, err error) {
 	for _, part := range c.FilterPart {
 		handler, ok := mapFilterHandler[part["type"].(string)]
 		if !ok {
-			return []FilterPlugin{}, errors.New("unknow filter type " + part["type"].(string))
+			return []FilterPlugin{},
+				errors.New("unknow filter type " + part["type"].(string))
 		}
 
 		inj := inject.New()
 		inj.SetParent(c)
 		inj.Map(&part)
 
-		refvs, err := inj.Invoke(handler)
+		refvs, _ := inj.Invoke(handler)
+		err = checkError(refvs)
 		if err != nil {
 			return []FilterPlugin{}, err
 		}
@@ -113,9 +123,6 @@ func (c *Config) getFilters() (filters []FilterPlugin, err error) {
 			if conf, ok := v.Interface().(FilterPlugin); ok {
 				conf.SetInjector(inj)
 				filters = append(filters, conf)
-			}
-			if err, ok := v.Interface().(error); ok {
-				Logger.Warnf("Load filter plugin config error %s", err)
 			}
 		}
 	}

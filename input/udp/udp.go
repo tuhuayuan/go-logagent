@@ -68,7 +68,7 @@ func (plugin *PluginConfig) Stop() {
 }
 
 // listen read data from udp emit logevent.
-func (plugin *PluginConfig) listen(inchan utils.InChan) (err error) {
+func (plugin *PluginConfig) listen(inChan utils.InputChannel) (err error) {
 	addr, err := net.ResolveUDPAddr("udp", plugin.Host+":"+plugin.Port)
 
 	if err != nil {
@@ -89,13 +89,14 @@ func (plugin *PluginConfig) listen(inchan utils.InChan) (err error) {
 
 		select {
 		case data := <-plugin.dataChan:
-			inchan <- utils.LogEvent{
+			inChan.Input(utils.LogEvent{
 				Timestamp: time.Now(),
 				Message:   data,
 				Extra: map[string]interface{}{
 					"host": plugin.hostname,
 				},
-			}
+			})
+
 		case <-plugin.exitSignal:
 			plugin.exitNotify <- true
 			return

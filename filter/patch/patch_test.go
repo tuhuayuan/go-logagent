@@ -1,7 +1,6 @@
 package patchfilter
 
 import (
-	"reflect"
 	"testing"
 
 	"zonst/tuhuayuan/logagent/utils"
@@ -24,20 +23,14 @@ func Test_Event(t *testing.T) {
 		}]
 	}`)
 	assert.NoError(t, err)
-
-	inchan := conf.Get(reflect.TypeOf(make(utils.InChan))).
-		Interface().(utils.InChan)
-	outchan := conf.Get(reflect.TypeOf(make(utils.OutChan))).
-		Interface().(utils.OutChan)
-
-	err = conf.RunFilters()
+	plugin, err := InitHandler(&conf.FilterPart[0])
 	assert.NoError(t, err)
 
-	inchan <- utils.LogEvent{
+	ev := utils.LogEvent{
 		Timestamp: time.Now(),
 		Message:   "",
 	}
 
-	event := <-outchan
-	assert.Equal(t, "tuhuayuan", event.Extra["name"])
+	ev = plugin.Process(ev)
+	assert.Equal(t, "tuhuayuan", ev.Extra["name"])
 }

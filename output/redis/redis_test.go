@@ -1,7 +1,6 @@
 package outputredis
 
 import (
-	"reflect"
 	"testing"
 
 	"zonst/tuhuayuan/logagent/utils"
@@ -30,14 +29,17 @@ func Test_All(t *testing.T) {
 	err = plugin.RunOutputs()
 	assert.NoError(t, err)
 
-	outchan := plugin.Get(reflect.TypeOf(make(utils.OutChan))).
-		Interface().(utils.OutChan)
-	outchan <- utils.LogEvent{
+	ev := utils.LogEvent{
 		Timestamp: time.Now(),
 		Message:   "new message",
 		Extra: map[string]interface{}{
 			"name": "tuhuayuan",
 		},
 	}
-	plugin.StopOutputs()
+	_, err = plugin.Invoke(func(outChan utils.OutputChannel) {
+		err = outChan.Output(ev)
+	})
+	assert.NoError(t, err)
+	err = plugin.StopOutputs()
+	assert.NoError(t, err)
 }
