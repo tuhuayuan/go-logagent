@@ -1,5 +1,8 @@
 package queue
 
+// 这个文件实现给予文件系统的FIFO队列，是NSQ消息服务器的一部分
+// 太复杂！！ 所以让我们用中文来注释一下
+
 import (
 	"bufio"
 	"bytes"
@@ -15,13 +18,13 @@ import (
 	"time"
 )
 
-// Logger .
+// Logger used to customer logger.
 type Logger interface {
 	Output(maxdepth int, s string) error
 }
 
-// Interface .
-type Interface interface {
+// Queue Api of FIFO diskqueue.
+type Queue interface {
 	Put([]byte) error
 	ReadChan() chan []byte // this is expected to be an *unbuffered* channel
 	Close() error
@@ -83,7 +86,7 @@ type diskQueue struct {
 func New(name string, dataPath string, maxBytesPerFile int64,
 	minMsgSize int32, maxMsgSize int32,
 	syncEvery int64, syncTimeout time.Duration,
-	logger Logger) Interface {
+	logger Logger) Queue {
 	d := diskQueue{
 		name:              name,
 		dataPath:          dataPath,
@@ -167,7 +170,6 @@ func (d *diskQueue) exit(deleted bool) error {
 	} else {
 		d.logf("DISKQUEUE(%s): closing", d.name)
 	}
-
 	close(d.exitChan)
 	// ensure that ioLoop has exited
 	<-d.exitSyncChan
@@ -391,90 +393,6 @@ func (d *diskQueue) writeOne(data []byte) error {
 	return err
 }
 
-// sync fsyncs the current writeFile and persists metadata
-func (d *diskQueue) sync() error {
-	if d.writeFile != nil {
-		err := d.writeFile.Sync()
-		if err != nil {
-			d.writeFile.Close()
-			d.writeFile = nil
-			return err
-		}
-	}
-
-	err := d.persistMetaData()
-	if err != nil {
-		return err
-	}
-
-	d.needSync = false
-	return nil
-}
-
-// retrieveMetaData initializes state from the filesystem
-func (d *diskQueue) retrieveMetaData() error {
-	var f *os.File
-	var err error
-
-	fileName := d.metaDataFileName()
-	f, err = os.OpenFile(fileName, os.O_RDONLY, 0600)
-	if err != nil {
-		return err
-	}
-	defer f.Close()
-
-	var depth int64
-	_, err = fmt.Fscanf(f, "%d\n%d,%d\n%d,%d\n",
-		&depth,
-		&d.readFileNum, &d.readPos,
-		&d.writeFileNum, &d.writePos)
-	if err != nil {
-		return err
-	}
-	atomic.StoreInt64(&d.depth, depth)
-	d.nextReadFileNum = d.readFileNum
-	d.nextReadPos = d.readPos
-
-	return nil
-}
-
-// persistMetaData atomically writes state to the filesystem
-func (d *diskQueue) persistMetaData() error {
-	var f *os.File
-	var err error
-
-	fileName := d.metaDataFileName()
-	tmpFileName := fmt.Sprintf("%s.%d.tmp", fileName, rand.Int())
-
-	// write to tmp file
-	f, err = os.OpenFile(tmpFileName, os.O_RDWR|os.O_CREATE, 0600)
-	if err != nil {
-		return err
-	}
-
-	_, err = fmt.Fprintf(f, "%d\n%d,%d\n%d,%d\n",
-		atomic.LoadInt64(&d.depth),
-		d.readFileNum, d.readPos,
-		d.writeFileNum, d.writePos)
-	if err != nil {
-		f.Close()
-		return err
-	}
-	f.Sync()
-	f.Close()
-
-	// atomically rename
-	return os.Rename(tmpFileName, fileName)
-}
-
-func (d *diskQueue) metaDataFileName() string {
-	return fmt.Sprintf(path.Join(d.dataPath, "%s.diskqueue.meta.dat"), d.name)
-}
-
-func (d *diskQueue) fileName(fileNum int64) string {
-	return fmt.Sprintf(path.Join(d.dataPath, "%s.diskqueue.%06d.dat"), d.name, fileNum)
-}
-
 func (d *diskQueue) checkTailCorruption(depth int64) {
 	if d.readFileNum < d.writeFileNum || d.readPos < d.writePos {
 		return
@@ -645,4 +563,90 @@ exit:
 	d.logf("DISKQUEUE(%s): closing ... ioLoop", d.name)
 	syncTicker.Stop()
 	d.exitSyncChan <- 1
+}
+
+// retrieveMetaData initializes state from the filesystem
+func (d *diskQueue) retrieveMetaData() error {
+	var f *os.File
+	var err error
+
+	fileName := d.metaDataFileName()
+	f, err = os.OpenFile(fileName, os.O_RDONLY, 0600)
+	if err != nil {
+		return err
+	}
+	defer f.Close()
+
+	var depth int64
+	_, err = fmt.Fscanf(f, "%d\n%d,%d\n%d,%d\n",
+		&depth,
+		&d.readFileNum, &d.readPos,
+		&d.writeFileNum, &d.writePos)
+	if err != nil {
+		return err
+	}
+	atomic.StoreInt64(&d.depth, depth)
+	d.nextReadFileNum = d.readFileNum
+	d.nextReadPos = d.readPos
+
+	return nil
+}
+
+// persistMetaData atomically writes state to the filesystem
+func (d *diskQueue) persistMetaData() error {
+	var f *os.File
+	var err error
+
+	fileName := d.metaDataFileName()
+	tmpFileName := fmt.Sprintf("%s.%d.tmp", fileName, rand.Int())
+
+	// write to tmp file
+	f, err = os.OpenFile(tmpFileName, os.O_RDWR|os.O_CREATE, 0600)
+	if err != nil {
+		return err
+	}
+
+	_, err = fmt.Fprintf(f, "%d\n%d,%d\n%d,%d\n",
+		atomic.LoadInt64(&d.depth),
+		d.readFileNum, d.readPos,
+		d.writeFileNum, d.writePos)
+	if err != nil {
+		f.Close()
+		return err
+	}
+	f.Sync()
+	f.Close()
+
+	// atomically rename
+	return os.Rename(tmpFileName, fileName)
+}
+
+// get meta file path
+func (d *diskQueue) metaDataFileName() string {
+	return fmt.Sprintf(path.Join(d.dataPath, "%s.diskqueue.meta.dat"), d.name)
+}
+
+// get queue data file path
+func (d *diskQueue) fileName(fileNum int64) string {
+	return fmt.Sprintf(path.Join(d.dataPath, "%s.diskqueue.%06d.dat"), d.name, fileNum)
+}
+
+// sync fsyncs the current writeFile and persists metadata
+func (d *diskQueue) sync() error {
+	if d.writeFile != nil {
+		err := d.writeFile.Sync()
+		if err != nil {
+			d.writeFile.Close()
+			d.writeFile = nil
+			return err
+		}
+	}
+
+	err := d.persistMetaData()
+	if err != nil {
+		return err
+	}
+
+	d.needSync = false
+	return nil
 }
