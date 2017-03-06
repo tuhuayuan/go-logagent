@@ -14,7 +14,7 @@ glide install
 
 go build
 
-./logagent -sentinel -configs ./test/ -v 5
+./logagent -sentinel -configs ./test/ -v 5 -data ./tmp
 
 ## 结构
 
