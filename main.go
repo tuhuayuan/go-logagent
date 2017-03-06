@@ -3,6 +3,7 @@ package main
 import (
 	"flag"
 	"os"
+	"runtime"
 	"strings"
 
 	"zonst/tuhuayuan/logagent/utils"
@@ -11,6 +12,7 @@ import (
 	_ "zonst/tuhuayuan/logagent/filter/grok"
 	_ "zonst/tuhuayuan/logagent/filter/patch"
 	_ "zonst/tuhuayuan/logagent/input/file"
+	//_ "zonst/tuhuayuan/logagent/input/http"
 	_ "zonst/tuhuayuan/logagent/input/stdin"
 	_ "zonst/tuhuayuan/logagent/input/udp"
 	_ "zonst/tuhuayuan/logagent/output/elastic"
@@ -28,6 +30,10 @@ var (
 	help      = flag.Bool("help", false, "Print this message.")
 	pid       = flag.Int("pid", -1, "(Warning)(Warning)(Warning)Do not use this.")
 )
+
+func init() {
+	runtime.GOMAXPROCS(runtime.NumCPU())
+}
 
 func main() {
 	flag.Parse()

@@ -30,16 +30,15 @@ func runAgent() int {
 			utils.Logger.Fatalf("Agent run inputs plugin error %s", err)
 			return -1
 		}
-
+		if err = c.RunOutputs(); err != nil {
+			utils.Logger.Fatalf("Agent run output plugin error %s", err)
+			return -1
+		}
 		if err = c.RunFilters(); err != nil {
 			utils.Logger.Fatalf("Agent run filter plugin error %s", err)
 			return -1
 		}
 
-		if err = c.RunOutputs(); err != nil {
-			utils.Logger.Fatalf("Agent run output plugin error %s", err)
-			return -1
-		}
 	}
 	utils.Logger.Info("Agent started.")
 

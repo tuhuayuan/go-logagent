@@ -52,7 +52,11 @@ func (c *Config) Input(ev LogEvent) (err error) {
 
 // RunInputs run all input plugin.
 func (c *Config) RunInputs() (err error) {
-	_, err = c.Invoke(c.runInputs)
+	rvs, err := c.Invoke(c.runInputs)
+	if err != nil {
+		return
+	}
+	err = checkError(rvs)
 	return
 }
 

@@ -42,7 +42,11 @@ func RegistFilterHandler(name string, handler FilterHandler) {
 func (c *Config) RunFilters() (err error) {
 	c.Map(make(filterExitChan))
 	c.Map(make(filterExitSyncChan))
-	_, err = c.Invoke(c.runFilters)
+	rvs, err := c.Invoke(c.runFilters)
+	if err != nil {
+		return
+	}
+	err = checkError(rvs)
 	return
 }
 
