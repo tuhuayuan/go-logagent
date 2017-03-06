@@ -12,7 +12,7 @@ import (
 	_ "zonst/tuhuayuan/logagent/filter/grok"
 	_ "zonst/tuhuayuan/logagent/filter/patch"
 	_ "zonst/tuhuayuan/logagent/input/file"
-	//_ "zonst/tuhuayuan/logagent/input/http"
+	_ "zonst/tuhuayuan/logagent/input/http"
 	_ "zonst/tuhuayuan/logagent/input/stdin"
 	_ "zonst/tuhuayuan/logagent/input/udp"
 	_ "zonst/tuhuayuan/logagent/output/elastic"

@@ -30,7 +30,7 @@ type PluginConfig struct {
 }
 
 func init() {
-	utils.RegistOutputHandler(PluginName, InitHandler)
+	utils.RegistInputHandler(PluginName, InitHandler)
 }
 
 // InitHandler create plugin
