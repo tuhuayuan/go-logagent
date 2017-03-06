@@ -2,7 +2,6 @@ package inputhttp
 
 import (
 	"encoding/json"
-	"fmt"
 	"io/ioutil"
 	"net/http"
 	"os"
@@ -133,9 +132,7 @@ func (plugin *PluginConfig) Handler(w http.ResponseWriter, r *http.Request) {
 		if raw, err = ioutil.ReadAll(r.Body); err == nil {
 			objs := map[string]interface{}{}
 			if err = json.Unmarshal(raw, &objs); err == nil {
-
 				for k, v := range objs {
-					fmt.Println(k, v)
 					ev.Extra[k] = v
 				}
 			}
