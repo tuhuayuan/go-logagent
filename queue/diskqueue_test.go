@@ -30,7 +30,7 @@ func Test_DiskQueue(t *testing.T) {
 	logger := NewTestLogger()
 
 	dqName := "test_disk_queue" + strconv.Itoa(int(time.Now().Unix()))
-	tmpDir, err := ioutil.TempDir("", fmt.Sprintf("nsq-test-%d", time.Now().UnixNano()))
+	tmpDir, err := ioutil.TempDir("", fmt.Sprintf("logagent-test-%d", time.Now().UnixNano()))
 	assert.NoError(t, err)
 	defer os.RemoveAll(tmpDir)
 
@@ -61,7 +61,7 @@ func Test_MutilFile(t *testing.T) {
 	logger := NewTestLogger()
 
 	dqName := "test_disk_queue_mutil" + strconv.Itoa(int(time.Now().Unix()))
-	tmpDir, err := ioutil.TempDir("", fmt.Sprintf("nsq-test-%d", time.Now().UnixNano()))
+	tmpDir, err := ioutil.TempDir("", fmt.Sprintf("logagent-test-%d", time.Now().UnixNano()))
 	assert.NoError(t, err)
 	defer os.RemoveAll(tmpDir)
 
@@ -109,7 +109,7 @@ func Test_QueueDepth(t *testing.T) {
 	logger := NewTestLogger()
 
 	dqName := "test_disk_queue_mutil" + strconv.Itoa(int(time.Now().Unix()))
-	tmpDir, err := ioutil.TempDir("", fmt.Sprintf("nsq-test-%d", time.Now().UnixNano()))
+	tmpDir, err := ioutil.TempDir("", fmt.Sprintf("logagent-test-%d", time.Now().UnixNano()))
 	assert.NoError(t, err)
 	defer os.RemoveAll(tmpDir)
 
@@ -148,7 +148,7 @@ func Test_Corruption(t *testing.T) {
 	logger := NewTestLogger()
 
 	dqName := "test_disk_queue_corruption" + strconv.Itoa(int(time.Now().Unix()))
-	tmpDir, err := ioutil.TempDir("", fmt.Sprintf("nsq-test-%d", time.Now().UnixNano()))
+	tmpDir, err := ioutil.TempDir("", fmt.Sprintf("logagent-test-%d", time.Now().UnixNano()))
 	assert.NoError(t, err)
 	defer os.RemoveAll(tmpDir)
 
@@ -205,7 +205,7 @@ func Test_Concurrency(t *testing.T) {
 	logger := NewTestLogger()
 
 	dqName := "test_disk_queue_corruption" + strconv.Itoa(int(time.Now().Unix()))
-	tmpDir, err := ioutil.TempDir("", fmt.Sprintf("nsq-test-%d", time.Now().UnixNano()))
+	tmpDir, err := ioutil.TempDir("", fmt.Sprintf("logagent-test-%d", time.Now().UnixNano()))
 	assert.NoError(t, err)
 	defer os.RemoveAll(tmpDir)
 
@@ -281,7 +281,7 @@ func Test_Peek(t *testing.T) {
 	logger := NewTestLogger()
 
 	dqName := "test_disk_queue_peek" + strconv.Itoa(int(time.Now().Unix()))
-	tmpDir, err := ioutil.TempDir("", fmt.Sprintf("nsq-test-%d", time.Now().UnixNano()))
+	tmpDir, err := ioutil.TempDir("", fmt.Sprintf("logagent-test-%d", time.Now().UnixNano()))
 	assert.NoError(t, err)
 	defer os.RemoveAll(tmpDir)
 

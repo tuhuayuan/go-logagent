@@ -53,21 +53,19 @@ type diskQueue struct {
 	exitFlag        int32
 	needSync        bool
 
-	// keeps track of the position where we have read
-	// (but not yet sent over readChan)
+	// 保存下一个读写位子
 	nextReadPos     int64
 	nextReadFileNum int64
 
+	// 文件指针
 	readFile  *os.File
 	writeFile *os.File
 	reader    *bufio.Reader
 	writeBuf  bytes.Buffer
 
-	// 读取通道
-	readChan chan []byte
-	peekChan chan []byte
+	readChan chan []byte // 无缓冲通道，用于读取队列头数据
+	peekChan chan []byte // 无缓冲通道，用于查看队列头数据
 
-	// internal channels
 	writeChan         chan []byte
 	writeResponseChan chan error
 	emptyChan         chan int
@@ -78,8 +76,8 @@ type diskQueue struct {
 	logger *logrus.Logger
 }
 
-// New instantiates an instance of diskQueue, retrieving metadata
-// from the filesystem and starting the read ahead goroutine
+// New 创建或者打开一个已存在的队列
+//
 func New(name string, dataPath string, maxBytesPerFile int64,
 	minMsgSize int32, maxMsgSize int32,
 	syncEvery int64, syncTimeout time.Duration,
@@ -103,14 +101,11 @@ func New(name string, dataPath string, maxBytesPerFile int64,
 		logger:            logger,
 	}
 
-	// no need to lock here, nothing else could possibly be touching this instance
 	err := d.retrieveMetaData()
 	if err != nil && !os.IsNotExist(err) {
 		d.logf("ERROR: diskqueue(%s) failed to retrieveMetaData - %s", d.name, err)
 	}
-
 	go d.ioLoop()
-
 	return &d
 }
 
@@ -190,8 +185,7 @@ func (d *diskQueue) exit(deleted bool) error {
 	return nil
 }
 
-// Empty destructively clears out any pending data in the queue
-// by fast forwarding read positions and removing intermediate files
+// Empty 清空队列
 func (d *diskQueue) Empty() error {
 	d.RLock()
 	defer d.RUnlock()
@@ -251,8 +245,7 @@ func (d *diskQueue) skipToNextRWFile() error {
 	return err
 }
 
-// readOne performs a low level filesystem read for a single []byte
-// while advancing read positions and rolling files, if necessary
+// readOne 底层文件读取
 func (d *diskQueue) readOne() ([]byte, error) {
 	var err error
 	var msgSize int32
@@ -303,14 +296,10 @@ func (d *diskQueue) readOne() ([]byte, error) {
 
 	totalBytes := int64(4 + msgSize)
 
-	// we only advance next* because we have not yet sent this to consumers
-	// (where readFileNum, readPos will actually be advanced)
+	// 不改变当前读写位置，记录下次读写文字
 	d.nextReadPos = d.readPos + totalBytes
 	d.nextReadFileNum = d.readFileNum
 
-	// TODO: each data file should embed the maxBytesPerFile
-	// as the first 8 bytes (at creation time) ensuring that
-	// the value can change without affecting runtime
 	if d.nextReadPos > d.maxBytesPerFile {
 		if d.readFile != nil {
 			d.readFile.Close()
@@ -324,8 +313,7 @@ func (d *diskQueue) readOne() ([]byte, error) {
 	return readBuf, nil
 }
 
-// writeOne performs a low level filesystem write for a single []byte
-// while advancing write positions and rolling files, if necessary
+// writeOne 底层写文件操作
 func (d *diskQueue) writeOne(data []byte) error {
 	var err error
 
@@ -458,10 +446,8 @@ func (d *diskQueue) moveForward() {
 }
 
 func (d *diskQueue) handleReadError() {
-	// jump to the next read file and rename the current (bad) file
 	if d.readFileNum == d.writeFileNum {
-		// if you can't properly read from the current write file it's safe to
-		// assume that something is fucked and we should skip the current file too
+		// 跳过当前写文件
 		if d.writeFile != nil {
 			d.writeFile.Close()
 			d.writeFile = nil
@@ -483,13 +469,13 @@ func (d *diskQueue) handleReadError() {
 			"ERROR: diskqueue(%s) failed to rename bad diskqueue file %s to %s",
 			d.name, badFn, badRenameFn)
 	}
-
+	// 跳过当前读文件
 	d.readFileNum++
 	d.readPos = 0
 	d.nextReadFileNum = d.readFileNum
 	d.nextReadPos = 0
 
-	// significant state change, schedule a sync on the next iteration
+	// schedule a sync on the next iteration
 	d.needSync = true
 }
 
