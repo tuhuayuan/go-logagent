@@ -18,10 +18,8 @@ type PluginConfig struct {
 	Hosts    []string `json:"hosts"`
 	Username string   `json:"username"`
 	Password string   `json:"password"`
-	// TODO if elastic index not created, using template settings create it.
-	Template string `json:"template"`
-	Index    string `json:"index"`
-	DocType  string `json:"doc_type"`
+	Index    string   `json:"index"`
+	DocType  string   `json:"doc_type"`
 
 	conn         *elastigo.Conn
 	bufChan      chan utils.LogEvent
