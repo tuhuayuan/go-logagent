@@ -185,7 +185,8 @@ func LoadFromData(data []byte, configName string, dataPath string) (config Confi
 
 	config.Injector = inject.New()
 	config.Map(Logger)
-
+	config.MapTo(&config, (*InputChannel)(nil))
+	config.MapTo(&config, (*OutputChannel)(nil))
 	rv := reflect.ValueOf(&config)
 	formatReflect(rv)
 

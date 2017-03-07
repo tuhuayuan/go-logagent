@@ -57,25 +57,25 @@ func (c *Config) Output(ev LogEvent) (err error) {
 		for _, plugin := range plugins {
 			dq := outputs[plugin.GetType()]
 			dq.buff.Reset()
-			err = dq.E.Encode(ev)
+			err = dq.encoder.Encode(ev)
 			if err != nil {
 				return
 			}
-			// write diskqueue sync
-			err = dq.Put(buff.Bytes())
+			err = dq.queue.Put(dq.buff.Bytes())
 		}
 		return
 	})
 	if err != nil {
 		return
 	}
-	err = checkError(rets)
-	return
+	return checkError(rets)
 }
 
 // RunOutputs start output plugin.
 func (c *Config) RunOutputs() (err error) {
-	var queues map[string]*diskOutput
+	var (
+		queues = make(map[string]*diskOutput)
+	)
 
 	outputs, err := c.getOutputs(c)
 	if err != nil {

@@ -1,14 +1,11 @@
 package utils
 
 import (
-	"bytes"
-	"encoding/gob"
 	"errors"
-	"time"
 
 	"github.com/codegangsta/inject"
 
-	"zonst/tuhuayuan/logagent/queue"
+	"reflect"
 )
 
 // InputPlugin interface.
@@ -35,66 +32,43 @@ func RegistInputHandler(name string, handler InputHandler) {
 	mapInputHandler[name] = handler
 }
 
-// Input implement InputChannel interface
-func (c *Config) Input(ev LogEvent) (err error) {
-	_, err = c.Invoke(func(dq queue.Queue, enc *gob.Encoder, buff *bytes.Buffer) (err error) {
-		buff.Reset()
-		err = enc.Encode(ev)
-		if err != nil {
-			return
-		}
-		// write diskqueue sync
-		err = dq.Put(buff.Bytes())
-		return
-	})
-	return
-}
-
 // RunInputs run all input plugin.
 func (c *Config) RunInputs() (err error) {
-	rvs, err := c.Invoke(c.runInputs)
+	var (
+		rets []reflect.Value
+	)
+	rets, err = c.Invoke(c.runInputs)
 	if err != nil {
 		return
 	}
-	err = checkError(rvs)
+	err = checkError(rets)
 	return
 }
 
 // StopInputs try stop all running input plugin, block until gracefully stopped.
 func (c *Config) StopInputs() (err error) {
-	_, err = c.Invoke(func(plugins []InputPlugin, dq queue.Queue) {
+	var (
+		rets []reflect.Value
+	)
+	rets, err = c.Invoke(func(plugins []InputPlugin) {
 		for _, p := range plugins {
 			p.Stop()
 		}
-		dq.Close()
 	})
+	if err != nil {
+		return
+	}
+	err = checkError(rets)
 	return
 }
 
 // runInputs.
 func (c *Config) runInputs() (err error) {
-	inputs, err := c.getInputs(c)
+	inputs, err := c.getInputs()
 	if err != nil {
 		return
 	}
-	// setup coder
-	var coderBuf bytes.Buffer
-	enc := gob.NewEncoder(&coderBuf)
-	dec := gob.NewDecoder(&coderBuf)
-	// setup diskqueue
-	dq := queue.New(c.Name, c.DataPath,
-		1024*1024*1024,
-		0,
-		1024*1024*10,
-		1024,
-		1*time.Second,
-		Logger)
-	// inject input plugins and diskqueue
 	c.Map(inputs)
-	c.Map(dq)
-	c.Map(&coderBuf)
-	c.Map(enc)
-	c.Map(dec)
 	// start all input plugin in individual goroutine
 	for _, input := range inputs {
 		go input.Start()
@@ -103,7 +77,11 @@ func (c *Config) runInputs() (err error) {
 }
 
 // getInputs create all configed input plugins.
-func (c *Config) getInputs(inChan InputChannel) (inputs []InputPlugin, err error) {
+func (c *Config) getInputs() (inputs []InputPlugin, err error) {
+	var (
+		rets []reflect.Value
+	)
+
 	for _, part := range c.InputPart {
 		handler, ok := mapInputHandler[part["type"].(string)]
 		if !ok {
@@ -114,17 +92,17 @@ func (c *Config) getInputs(inChan InputChannel) (inputs []InputPlugin, err error
 		// build input plugin injector.
 		inj := inject.New()
 		inj.SetParent(c)
-		// inject config part and InputChannel interface
 		inj.Map(&part)
-		c.Map(inChan)
 
 		// invoke plugin create factory.
-		refvs, _ := inj.Invoke(handler)
-		err = checkError(refvs)
-		if err != nil {
-			return []InputPlugin{}, err
+		if rets, err = inj.Invoke(handler); err != nil {
+			return
 		}
-		for _, v := range refvs {
+		if err = checkError(rets); err != nil {
+			return
+		}
+
+		for _, v := range rets {
 			if !v.CanInterface() || v.IsNil() {
 				continue
 			}

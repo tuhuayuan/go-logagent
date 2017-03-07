@@ -1,14 +1,11 @@
 package utils
 
 import (
-	"bytes"
-	"encoding/gob"
 	"errors"
 
 	"github.com/codegangsta/inject"
 
-	"time"
-	"zonst/tuhuayuan/logagent/queue"
+	"reflect"
 )
 
 // FilterPlugin interface.
@@ -38,71 +35,51 @@ func RegistFilterHandler(name string, handler FilterHandler) {
 	mapFilterHandler[name] = handler
 }
 
-// RunFilters run all filter plugin.
-func (c *Config) RunFilters() (err error) {
-	c.Map(make(filterExitChan))
-	c.Map(make(filterExitSyncChan))
-	rvs, err := c.Invoke(c.runFilters)
+// Input implement InputChannel interface
+func (c *Config) Input(ev LogEvent) (err error) {
+	var (
+		rets []reflect.Value
+	)
+	// sync to OutputChannel
+	rets, err = c.Invoke(func(outChan OutputChannel, filters []FilterPlugin) (err error) {
+		for _, f := range filters {
+			ev = f.Process(ev)
+		}
+		err = outChan.Output(ev)
+		return
+	})
 	if err != nil {
 		return
 	}
-	err = checkError(rvs)
+	err = checkError(rets)
+	return
+}
+
+// RunFilters run all filter plugin.
+func (c *Config) RunFilters() (err error) {
+	var (
+		rets []reflect.Value
+	)
+	rets, err = c.Invoke(func() (err error) {
+		filters, err := c.getFilters(c)
+		c.Map(filters)
+		return
+	})
+	err = checkError(rets)
 	return
 }
 
 // StopFilters try to stop filter gracefully.
 func (c *Config) StopFilters() (err error) {
-	_, err = c.Invoke(func(exit filterExitChan, exitSync filterExitSyncChan) {
-		exit <- 1
-		<-exitSync
-	})
-	return
-}
-
-// runFilters.
-func (c *Config) runFilters(outChan OutputChannel,
-	dq queue.Queue, buf *bytes.Buffer, dec *gob.Decoder,
-	exit filterExitChan, exitSync filterExitSyncChan) (err error) {
-	filters, err := c.getFilters()
-	if err != nil {
-		return
-	}
-	running := true
-	tick := time.NewTicker(100 * time.Millisecond)
-	go func() {
-		for running {
-			select {
-			case raw := <-dq.PeekChan():
-				event := LogEvent{}
-				buf.Reset()
-				if _, err = buf.Write(raw); err != nil {
-					goto next
-				}
-				if err = dec.Decode(&event); err != nil {
-					goto next
-				}
-				for _, filter := range filters {
-					event = filter.Process(event)
-				}
-				if err = outChan.Output(event); err != nil {
-					Logger.Warn("Filter output return error %s, message retry.", err)
-					continue
-				}
-			next:
-				<-dq.ReadChan()
-			case <-tick.C:
-				// tick
-			case <-exit:
-				running = false
-			}
-		}
-		close(exitSync)
-	}()
 	return
 }
 
 // getFilters.
-func (c *Config) getFilters() (filters []FilterPlugin, err error) {
+func (c *Config) getFilters(inChan InputChannel) (filters []FilterPlugin, err error) {
+	var (
+		rets []reflect.Value
+	)
+
 	for _, part := range c.FilterPart {
 		handler, ok := mapFilterHandler[part["type"].(string)]
 		if !ok {
@@ -113,20 +90,22 @@ func (c *Config) getFilters() (filters []FilterPlugin, err error) {
 		inj := inject.New()
 		inj.SetParent(c)
 		inj.Map(&part)
+		c.Map(inChan)
 
-		refvs, _ := inj.Invoke(handler)
-		err = checkError(refvs)
-		if err != nil {
-			return []FilterPlugin{}, err
+		if rets, err = inj.Invoke(handler); err != nil {
+			return
+		}
+		if err = checkError(rets); err != nil {
+			return
 		}
 
-		for _, v := range refvs {
+		for _, v := range rets {
 			if !v.CanInterface() || v.IsNil() {
 				continue
 			}
-			if conf, ok := v.Interface().(FilterPlugin); ok {
-				conf.SetInjector(inj)
-				filters = append(filters, conf)
+			if plugin, ok := v.Interface().(FilterPlugin); ok {
+				plugin.SetInjector(inj)
+				filters = append(filters, plugin)
 			}
 		}
 	}
