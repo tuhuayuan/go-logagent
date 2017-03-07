@@ -21,11 +21,7 @@ type OutputPlugin interface {
 }
 
 type diskOutput struct {
-	buff     bytes.Buffer
-	encoder  *gob.Encoder
-	decoder  *gob.Decoder
 	queue    queue.Queue
-	ticker   <-chan time.Time
 	exitChan chan int
 	group    *sync.WaitGroup
 }
@@ -56,26 +52,26 @@ func (c *Config) Output(ev LogEvent) (err error) {
 	rets, err = c.Invoke(func(plugins []OutputPlugin, outputs map[string]*diskOutput) (err error) {
 		for _, plugin := range plugins {
 			dq := outputs[plugin.GetType()]
-			dq.buff.Reset()
-			err = dq.encoder.Encode(ev)
+			buff := &bytes.Buffer{}
+			gob.NewEncoder(buff).Encode(ev)
 			if err != nil {
 				return
 			}
-			err = dq.queue.Put(dq.buff.Bytes())
+			// write diskqueue sync
+			err = dq.queue.Put(buff.Bytes())
 		}
 		return
 	})
 	if err != nil {
 		return
 	}
-	return checkError(rets)
+	err = checkError(rets)
+	return
 }
 
 // RunOutputs start output plugin.
 func (c *Config) RunOutputs() (err error) {
-	var (
-		queues = make(map[string]*diskOutput)
-	)
+	var queues = map[string]*diskOutput{}
 
 	outputs, err := c.getOutputs(c)
 	if err != nil {
@@ -86,13 +82,10 @@ func (c *Config) RunOutputs() (err error) {
 	c.Map(group)
 	for _, plugin := range outputs {
 		dq := &diskOutput{
-			ticker:   time.NewTicker(100 * time.Millisecond).C,
 			exitChan: make(chan int),
 			group:    group,
 		}
 
-		dq.decoder = gob.NewDecoder(&dq.buff)
-		dq.encoder = gob.NewEncoder(&dq.buff)
 		dq.queue = queue.New(c.Name+"_"+plugin.GetType(), c.DataPath,
 			1024*1024*1024,
 			0,
@@ -115,22 +108,21 @@ func (c *Config) RunOutputs() (err error) {
 				select {
 				case raw := <-dq.queue.PeekChan():
 					ev := LogEvent{}
-					dq.buff.Reset()
-					if _, err = dq.buff.Write(raw); err != nil {
+					buff := &bytes.Buffer{}
+					if _, err = buff.Write(raw); err != nil {
 						goto next
 					}
-					if err = dq.decoder.Decode(&ev); err != nil {
+					if err = gob.NewDecoder(buff).Decode(&ev); err != nil {
+						Logger.Warnf("Decoder return error %s", err)
 						goto next
 					}
 					if err = plugin.Process(ev); err != nil {
-						Logger.Warn("Output process return error %s", err)
-						time.Sleep(1 * time.Second)
+						Logger.Warnf("Output process return error %s, retry in 5 sec.", err)
+						time.Sleep(5 * time.Second)
 						continue
 					}
 				next:
 					<-dq.queue.ReadChan()
-				case <-dq.ticker:
-					// tick
 				case <-dq.exitChan:
 					running = false
 				}
