@@ -11,6 +11,7 @@ import (
 	// load and regist all plugins
 	_ "zonst/tuhuayuan/logagent/filter/grok"
 	_ "zonst/tuhuayuan/logagent/filter/patch"
+	_ "zonst/tuhuayuan/logagent/filter/timezone"
 	_ "zonst/tuhuayuan/logagent/input/file"
 	_ "zonst/tuhuayuan/logagent/input/http"
 	_ "zonst/tuhuayuan/logagent/input/stdin"
