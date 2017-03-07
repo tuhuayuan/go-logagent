@@ -3,6 +3,12 @@
         {
             "type": "stdin",
             "prefix": "[logagent#] "
+        },
+        {
+            "type": "http",
+            "host": "0.0.0.0:3000",
+			"url_path": "/replay",
+			"methods": ["POST","PUT"] 
         }
     ],
     "filter": [ 
@@ -19,6 +25,14 @@
     "output": [     
         {
             "type": "stdout"
+        },
+        {
+            "type": "redis",
+	    	"key": "log",
+			"db": 1,
+	        "host": "127.0.0.1:6379",
+	        "data_type": "list",
+	        "timeout": 5
         }
     ]
 }

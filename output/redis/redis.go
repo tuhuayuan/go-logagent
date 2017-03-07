@@ -76,60 +76,45 @@ func InitHandler(part *utils.ConfigPart) (plugin *PluginConfig, err error) {
 			return err
 		},
 	}
-	// start process in another goroutine
-	go conf.loopEvent()
 
 	plugin = &conf
 	return
 }
 
 // Process flush log event
-func (plugin *PluginConfig) Process(event utils.LogEvent) (err error) {
-	plugin.bufChan <- event
-	return
-}
-
-// Stop stop loopEvent goroutine
-func (plugin *PluginConfig) Stop() {
-	plugin.exitChan <- 1
-	<-plugin.exitSyncChan
-}
-
-// loopEvent
-func (plugin *PluginConfig) loopEvent() (err error) {
+func (plugin *PluginConfig) Process(ev utils.LogEvent) (err error) {
 	var (
 		conn redis.Conn
 		data []byte
 		key  string
 	)
 
-	for {
-		select {
-		case event := <-plugin.bufChan:
-			if data, err = event.Marshal(true); err != nil {
-				utils.Logger.Errorf("marshal failed: %v", event)
-				return
-			}
-			// get store key
-			key = event.Format(plugin.Key)
-			// get a connection
-			conn = plugin.pool.Get()
-			// types
-			switch plugin.DataType {
-			case "list":
-				_, err = conn.Do("rpush", key, data)
-			case "channel":
-				_, err = conn.Do("publish", key, data)
-			}
-			// TODO redis error not handler.
-			if err != nil {
-				utils.Logger.Warnf("Redis error %q, log lost.", err)
-			}
-		case <-plugin.exitChan:
-			plugin.pool.Close()
-			close(plugin.bufChan)
-			close(plugin.exitSyncChan)
-			return
-		}
+	if data, err = ev.Marshal(true); err != nil {
+		utils.Logger.Errorf("marshal failed: %v", ev)
+		return
 	}
+	// get store key
+	key = ev.Format(plugin.Key)
+	// get a connection
+	conn = plugin.pool.Get()
+	if err = conn.Err(); err != nil {
+		return
+	}
+
+	// types
+	switch plugin.DataType {
+	case "list":
+		_, err = conn.Do("rpush", key, data)
+	case "channel":
+		_, err = conn.Do("publish", key, data)
+	}
+	if err != nil {
+		utils.Logger.Warnf("Redis error %q, log lost.", err)
+	}
+	return
+}
+
+// Stop stop loopEvent goroutine
+func (plugin *PluginConfig) Stop() {
+	plugin.pool.Close()
 }

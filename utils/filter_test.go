@@ -1,12 +1,8 @@
 package utils
 
 import (
+	"fmt"
 	"testing"
-	"time"
-	"zonst/tuhuayuan/logagent/queue"
-
-	"bytes"
-	"encoding/gob"
 
 	"github.com/stretchr/testify/assert"
 )
@@ -25,17 +21,19 @@ func InitTestFilterPlugin(part *ConfigPart) *TestFilterPlugin {
 	return testFilterPlugin
 }
 
-func (plugin *TestFilterPlugin) Output(ev LogEvent) error {
+func (plugin *TestFilterPlugin) Output(ev LogEvent) (err error) {
 	testOutputChan <- ev
-	return nil
+	return
 }
+
 func (plugin *TestFilterPlugin) Process(ev LogEvent) LogEvent {
+	ev.Message = ev.Message + " filted"
 	return ev
 }
 
 func Test_RunFilters(t *testing.T) {
 	RegistFilterHandler("test_filter", InitTestFilterPlugin)
-	config, err := LoadFromString(`
+	plugin, err := LoadFromString(`
 	{
 		"filter": [{
 			"type": "test_filter"
@@ -43,30 +41,17 @@ func Test_RunFilters(t *testing.T) {
 	}
 	`)
 	assert.NoError(t, err)
-	dq := queue.New(config.Name, config.DataPath,
-		1024*1024*1024,
-		0,
-		1024*1024*10,
-		1024,
-		1*time.Second,
-		Logger)
-	buf := bytes.Buffer{}
-	enc := gob.NewEncoder(&buf)
-	dec := gob.NewDecoder(&buf)
-	config.Map(&buf)
-	config.Map(enc)
-	config.Map(dec)
-	config.Map(dq)
-	config.MapTo(testFilterPlugin, (*OutputChannel)(nil))
-
-	err = config.RunFilters()
+	err = plugin.RunFilters()
+	assert.NoError(t, err)
+	plugin.MapTo(testFilterPlugin, (*OutputChannel)(nil))
+	_, err = plugin.Invoke(func(inChan InputChannel) {
+		err = inChan.Input(LogEvent{
+			Message: "test",
+		})
+	})
+	fmt.Println(<-testOutputChan)
 	assert.NoError(t, err)
 
-	enc.Encode(LogEvent{
-		Message: "test",
-	})
-	dq.Put(buf.Bytes())
-	assert.Equal(t, (<-testOutputChan).Message, "test")
-	err = config.StopFilters()
+	err = plugin.StopFilters()
 	assert.NoError(t, err)
 }
