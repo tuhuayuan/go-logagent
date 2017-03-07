@@ -56,7 +56,6 @@ type InputChannel interface {
 type OutputChannel interface {
 	Output(ev LogEvent) error
 }
-type OutChan chan LogEvent
 
 // Check reflect invoke error
 func checkError(refvs []reflect.Value) (err error) {
@@ -185,11 +184,7 @@ func LoadFromData(data []byte, configName string, dataPath string) (config Confi
 	}
 
 	config.Injector = inject.New()
-
-	outchan := make(OutChan)
-
 	config.Map(Logger)
-	config.Map(outchan)
 
 	rv := reflect.ValueOf(&config)
 	formatReflect(rv)
