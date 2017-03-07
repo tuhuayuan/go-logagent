@@ -50,9 +50,6 @@ func (c *Config) RunOutputs() (err error) {
 	if err != nil {
 		return
 	}
-	for index, plugin := range outputs {
-
-	}
 	c.Map(outputs)
 	return
 }

@@ -24,7 +24,7 @@ func Test_Run(t *testing.T) {
 				"type": "http",
 				"host": "0.0.0.0:3000",
 				"url_path": "/replay",
-				"methods": ["POST"]
+				"methods": ["POST", "Put"]
 			}
 		]
 	}

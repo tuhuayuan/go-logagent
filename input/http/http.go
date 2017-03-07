@@ -105,9 +105,13 @@ func (plugin *PluginConfig) Handler(w http.ResponseWriter, r *http.Request) {
 	var (
 		methodMatched bool
 		err           error
+		method        string
 	)
-	for _, methodSupported := range plugin.Methods {
-		if methodSupported == r.Method {
+	method = strings.ToUpper(r.Method)
+
+	// check method
+	for _, m := range plugin.Methods {
+		if m == method {
 			methodMatched = true
 			break
 		}
