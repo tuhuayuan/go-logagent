@@ -33,7 +33,7 @@ func init() {
 
 // InitHandler create plugin.
 func InitHandler(part *utils.ConfigPart) (plugin *PluginConfig, err error) {
-	conf := PluginConfig{
+	config := PluginConfig{
 		OutputPluginConfig: utils.OutputPluginConfig{
 			TypePluginConfig: utils.TypePluginConfig{
 				Type: PluginName,
@@ -45,62 +45,43 @@ func InitHandler(part *utils.ConfigPart) (plugin *PluginConfig, err error) {
 		exitSyncChan: make(chan int),
 	}
 	// read config
-	err = utils.ReflectConfigPart(part, &conf)
+	err = utils.ReflectConfigPart(part, &config)
 	if err != nil {
 		utils.Logger.Errorf("Elastic plugin config error %q", err)
 		return
 	}
 	// setup elastic client
-	conf.conn.SetHosts(conf.Hosts)
-	if conf.Username != "" {
-		conf.conn.Username = conf.Username
-		conf.conn.Password = conf.Password
+	config.conn.SetHosts(config.Hosts)
+	if config.Username != "" {
+		config.conn.Username = config.Username
+		config.conn.Password = config.Password
 	}
 	// test connection
-	_, err = conf.conn.Health("_all")
+	_, err = config.conn.Health("_all")
 	if err != nil {
 		utils.Logger.Warnf("Elasic cluster health check error %q", err)
 	}
-	plugin = &conf
-	go plugin.loopEvent()
+	plugin = &config
 	return
 }
 
 // Process send log event.
-func (plugin *PluginConfig) Process(event utils.LogEvent) (err error) {
-	plugin.bufChan <- event
-	return
-}
-
-// Stop stop loop.
-func (plugin *PluginConfig) Stop() {
-	plugin.exitChan <- 1
-	<-plugin.exitSyncChan
-}
-
-// loopEvent
-func (plugin *PluginConfig) loopEvent() (err error) {
+func (plugin *PluginConfig) Process(ev utils.LogEvent) (err error) {
 	var (
 		index   string
 		docType string
 	)
 
-	for {
-		select {
-		case event := <-plugin.bufChan:
-			index = event.Format(plugin.Index)
-			docType = event.Format(plugin.DocType)
-			_, err := plugin.conn.Index(index, docType, "", map[string]interface{}{}, event.GetMap())
-			// TODO elastic error not handler.
-			if err != nil {
-				utils.Logger.Warnf("Elastic: output index error %q", err)
-			}
-
-		case <-plugin.exitChan:
-			plugin.conn.Close()
-			close(plugin.bufChan)
-			close(plugin.exitSyncChan)
-			return
-		}
+	index = ev.Format(plugin.Index)
+	docType = ev.Format(plugin.DocType)
+	_, err = plugin.conn.Index(index, docType, "", map[string]interface{}{}, ev.GetMap())
+	if err != nil {
+		utils.Logger.Warnf("Elastic: output index error %q", err)
 	}
+	return
+}
+
+// Stop stop loop.
+func (plugin *PluginConfig) Stop() {
+	plugin.conn.Close()
 }
