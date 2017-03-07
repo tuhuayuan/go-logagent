@@ -73,7 +73,7 @@ func (c *Config) Output(ev LogEvent) (err error) {
 func (c *Config) RunOutputs() (err error) {
 	var queues = map[string]*diskOutput{}
 
-	outputs, err := c.getOutputs(c)
+	outputs, err := c.getOutputs()
 	if err != nil {
 		return
 	}
@@ -149,7 +149,7 @@ func (c *Config) StopOutputs() (err error) {
 }
 
 // getOutputs.
-func (c *Config) getOutputs(outChan OutputChannel) (outputs []OutputPlugin, err error) {
+func (c *Config) getOutputs() (outputs []OutputPlugin, err error) {
 	for _, part := range c.OutputPart {
 		handler, ok := mapOutputHandler[part["type"].(string)]
 		if !ok {
@@ -160,7 +160,6 @@ func (c *Config) getOutputs(outChan OutputChannel) (outputs []OutputPlugin, err 
 		inj := inject.New()
 		inj.SetParent(c)
 		inj.Map(&part)
-		c.Map(outChan)
 
 		refvs, _ := inj.Invoke(handler)
 		checkError(refvs)

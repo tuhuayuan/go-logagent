@@ -61,7 +61,7 @@ func (c *Config) RunFilters() (err error) {
 		rets []reflect.Value
 	)
 	rets, err = c.Invoke(func() (err error) {
-		filters, err := c.getFilters(c)
+		filters, err := c.getFilters()
 		c.Map(filters)
 		return
 	})
@@ -75,7 +75,7 @@ func (c *Config) StopFilters() (err error) {
 }
 
 // getFilters.
-func (c *Config) getFilters(inChan InputChannel) (filters []FilterPlugin, err error) {
+func (c *Config) getFilters() (filters []FilterPlugin, err error) {
 	var (
 		rets []reflect.Value
 	)
@@ -90,7 +90,6 @@ func (c *Config) getFilters(inChan InputChannel) (filters []FilterPlugin, err er
 		inj := inject.New()
 		inj.SetParent(c)
 		inj.Map(&part)
-		c.Map(inChan)
 
 		if rets, err = inj.Invoke(handler); err != nil {
 			return
