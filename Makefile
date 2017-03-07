@@ -1,10 +1,11 @@
-GOOS?=darwin 
+GOOS?=darwin
 GOARCH?=amd64
+OUTPUT=./build/${GOOS}/${GOARCH}
 
-build:
-	go build 
+build: 
+	go build -o $(OUTPUT)/logagent
 
 clean:
-	rm ./logagent
+	rm -rf ./build/*
 
-.PHONY: clean
+.PHONY: clean, build
