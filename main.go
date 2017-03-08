@@ -30,6 +30,7 @@ var (
 	level     = flag.Int("v", 3, "Logger level 0(panic)~5(debug).")
 	help      = flag.Bool("help", false, "Print this message.")
 	pid       = flag.Int("pid", -1, "(Warning)(Warning)(Warning)Do not use this.")
+	pidFile   = flag.String("p", "./sentinel.pid", "Store pid file of current sentinel.")
 )
 
 func init() {

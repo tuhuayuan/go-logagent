@@ -25,6 +25,13 @@ func runSentinel() int {
 		cmdChan chan *exec.Cmd
 	)
 	cmdChan = make(chan *exec.Cmd, 1)
+	pf, err := os.OpenFile(*pidFile, os.O_CREATE|os.O_RDWR, 0600)
+	if err != nil {
+		utils.Logger.Fatalf("Write pid file error %s", err)
+		return -1
+	}
+	defer pf.Close()
+	pf.WriteString(strconv.Itoa(os.Getpid()))
 
 	// trace agent process state.
 	exit = make(chan bool, 1)

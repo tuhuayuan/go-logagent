@@ -19,3 +19,4 @@ vendor/
 
 # exec
 build/
+*.pid
