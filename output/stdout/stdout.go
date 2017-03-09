@@ -3,7 +3,7 @@ package outputstdout
 import (
 	"fmt"
 
-	"zonst/tuhuayuan/logagent/utils"
+	"zonst/qipai/logagent/utils"
 )
 
 const (

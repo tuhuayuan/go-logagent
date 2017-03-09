@@ -3,7 +3,7 @@ package stdininput
 import (
 	"testing"
 
-	"zonst/tuhuayuan/logagent/utils"
+	"zonst/qipai/logagent/utils"
 
 	"github.com/stretchr/testify/assert"
 )

@@ -11,8 +11,8 @@ import (
 	"bufio"
 	"bytes"
 	"sync"
-	"zonst/tuhuayuan/logagent/queue"
-	"zonst/tuhuayuan/logagent/utils"
+	"zonst/qipai/logagent/queue"
+	"zonst/qipai/logagent/utils"
 )
 
 var (

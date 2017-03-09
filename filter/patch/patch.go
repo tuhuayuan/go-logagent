@@ -3,7 +3,7 @@ package patchfilter
 // patch LogEvent.Extra with config kv pair
 
 import (
-	"zonst/tuhuayuan/logagent/utils"
+	"zonst/qipai/logagent/utils"
 )
 
 const (

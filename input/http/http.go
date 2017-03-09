@@ -7,7 +7,7 @@ import (
 	"os"
 	"strings"
 	"time"
-	"zonst/tuhuayuan/logagent/utils"
+	"zonst/qipai/logagent/utils"
 )
 
 const (

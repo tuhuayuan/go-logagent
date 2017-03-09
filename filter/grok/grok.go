@@ -6,7 +6,7 @@ package grokfilter
 import (
 	"regexp"
 
-	"zonst/tuhuayuan/logagent/utils"
+	"zonst/qipai/logagent/utils"
 )
 
 const (

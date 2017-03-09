@@ -1,7 +1,7 @@
 package outputelastic
 
 import (
-	"zonst/tuhuayuan/logagent/utils"
+	"zonst/qipai/logagent/utils"
 
 	elastigo "github.com/mattbaird/elastigo/lib"
 )

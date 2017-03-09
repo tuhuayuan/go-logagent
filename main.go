@@ -6,19 +6,19 @@ import (
 	"runtime"
 	"strings"
 
-	"zonst/tuhuayuan/logagent/utils"
+	"zonst/qipai/logagent/utils"
 
 	// load and regist all plugins
-	_ "zonst/tuhuayuan/logagent/filter/grok"
-	_ "zonst/tuhuayuan/logagent/filter/patch"
-	_ "zonst/tuhuayuan/logagent/filter/timezone"
-	_ "zonst/tuhuayuan/logagent/input/file"
-	_ "zonst/tuhuayuan/logagent/input/http"
-	_ "zonst/tuhuayuan/logagent/input/stdin"
-	_ "zonst/tuhuayuan/logagent/input/udp"
-	_ "zonst/tuhuayuan/logagent/output/elastic"
-	_ "zonst/tuhuayuan/logagent/output/redis"
-	_ "zonst/tuhuayuan/logagent/output/stdout"
+	_ "zonst/qipai/logagent/filter/grok"
+	_ "zonst/qipai/logagent/filter/patch"
+	_ "zonst/qipai/logagent/filter/timezone"
+	_ "zonst/qipai/logagent/input/file"
+	_ "zonst/qipai/logagent/input/http"
+	_ "zonst/qipai/logagent/input/stdin"
+	_ "zonst/qipai/logagent/input/udp"
+	_ "zonst/qipai/logagent/output/elastic"
+	_ "zonst/qipai/logagent/output/redis"
+	_ "zonst/qipai/logagent/output/stdout"
 )
 
 var (

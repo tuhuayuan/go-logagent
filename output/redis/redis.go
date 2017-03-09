@@ -5,7 +5,7 @@ import (
 
 	"github.com/garyburd/redigo/redis"
 
-	"zonst/tuhuayuan/logagent/utils"
+	"zonst/qipai/logagent/utils"
 )
 
 const (

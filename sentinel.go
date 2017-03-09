@@ -8,7 +8,7 @@ import (
 	"path/filepath"
 	"strings"
 	"syscall"
-	"zonst/tuhuayuan/logagent/utils"
+	"zonst/qipai/logagent/utils"
 
 	"time"
 

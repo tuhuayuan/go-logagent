@@ -4,7 +4,7 @@ import (
 	"testing"
 	"time"
 
-	"zonst/tuhuayuan/logagent/utils"
+	"zonst/qipai/logagent/utils"
 
 	"github.com/stretchr/testify/assert"
 )
