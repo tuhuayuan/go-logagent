@@ -53,8 +53,9 @@ func (c *Config) Output(ev LogEvent) (err error) {
 		for _, plugin := range plugins {
 			dq := outputs[plugin.GetType()]
 			buff := &bytes.Buffer{}
-			gob.NewEncoder(buff).Encode(ev)
+			err = gob.NewEncoder(buff).Encode(ev)
 			if err != nil {
+				Logger.Warnf("Encoder return error %s", err)
 				return
 			}
 			// write diskqueue sync

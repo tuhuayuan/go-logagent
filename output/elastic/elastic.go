@@ -18,8 +18,6 @@ type PluginConfig struct {
 	Hosts    []string `json:"hosts"`
 	Username string   `json:"username"`
 	Password string   `json:"password"`
-	Index    string   `json:"index"`
-	DocType  string   `json:"doc_type"`
 
 	conn         *elastigo.Conn
 	bufChan      chan utils.LogEvent
@@ -61,6 +59,7 @@ func InitHandler(part *utils.ConfigPart) (plugin *PluginConfig, err error) {
 	if err != nil {
 		utils.Logger.Warnf("Elasic cluster health check error %q", err)
 	}
+
 	plugin = &config
 	return
 }
@@ -68,13 +67,16 @@ func InitHandler(part *utils.ConfigPart) (plugin *PluginConfig, err error) {
 // Process send log event.
 func (plugin *PluginConfig) Process(ev utils.LogEvent) (err error) {
 	var (
-		index   string
+		indices string
 		docType string
+		docID   string
 	)
 
-	index = ev.Format(plugin.Index)
-	docType = ev.Format(plugin.DocType)
-	_, err = plugin.conn.Index(index, docType, "", map[string]interface{}{}, ev.GetMap())
+	indices = ev.Format(ev.Extra["@elastic_indices"].(string))
+	docType = ev.Format(ev.Extra["@elastic_doctype"].(string))
+	docID = ev.Format(ev.Extra["@elastic_docid"].(string))
+
+	_, err = plugin.conn.Index(indices, docType, docID, map[string]interface{}{}, ev.Message)
 	if err != nil {
 		utils.Logger.Warnf("Elastic: output index error %q", err)
 	}

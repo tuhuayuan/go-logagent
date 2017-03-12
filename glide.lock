@@ -1,10 +1,10 @@
-hash: 60b7c92d68ccae443febb19606794a99fba9dfe1f065abef6586abedf695f7f8
-updated: 2017-03-01T16:24:32.370147776+08:00
+hash: 8dfa5334d892783cb8d146c9cd80a2f923aa636eaa1a1126670a72d8e0c65a69
+updated: 2017-03-12T17:01:19.117059368+08:00
 imports:
 - name: github.com/araddon/gou
   version: 0ab1e8f997e35d27da012072dc531fcc0204da5a
 - name: github.com/bitly/go-hostpool
-  version: d0e59c22a56e8dadfed24f74f452cea5a52722d2
+  version: c32c3660406ef1ea14936cc9282e174fe8508c42
 - name: github.com/codegangsta/inject
   version: 33e0aa1cb7c019ccc3fbe049a8262a6403d30504
 - name: github.com/coreos/etcd
