@@ -1,11 +1,10 @@
 package patchfilter
 
-// patch LogEvent.Extra with config kv pair
-
 import (
 	"zonst/qipai/logagent/utils"
 )
 
+// 暂时没发现有什么用，用来测试的
 const (
 	// PluginName name of this patch
 	PluginName = "patch"

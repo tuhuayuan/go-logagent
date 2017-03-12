@@ -282,3 +282,17 @@ func FileList(dirPath string, suffix string) ([]string, error) {
 
 	return files, nil
 }
+
+// getEtcdList get host list from arguments.
+func getEtcdList(hosts string) []string {
+	endpoints := strings.Split(hosts, ";")
+	for i, v := range endpoints {
+		endpoints[i] = strings.TrimSpace(v)
+	}
+	return endpoints
+}
+
+// getEtcdPath get agent config path from arguments.
+func getEtcdPath(agName string) string {
+	return "/zonst.org/logagent/" + agName + "/"
+}

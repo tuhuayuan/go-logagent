@@ -100,6 +100,7 @@ func (plugin *PluginConfig) Process(ev utils.LogEvent) (err error) {
 	if err = conn.Err(); err != nil {
 		return
 	}
+	defer conn.Close()
 
 	// types
 	switch plugin.DataType {

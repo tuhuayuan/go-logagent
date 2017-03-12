@@ -3,12 +3,10 @@ package main
 import (
 	"flag"
 	"os"
+	"os/signal"
 	"runtime"
-	"strings"
+	"syscall"
 
-	"zonst/qipai/logagent/utils"
-
-	// load and regist all plugins
 	_ "zonst/qipai/logagent/filter/grok"
 	_ "zonst/qipai/logagent/filter/patch"
 	_ "zonst/qipai/logagent/filter/timezone"
@@ -19,6 +17,8 @@ import (
 	_ "zonst/qipai/logagent/output/elastic"
 	_ "zonst/qipai/logagent/output/redis"
 	_ "zonst/qipai/logagent/output/stdout"
+
+	"zonst/qipai/logagent/utils"
 )
 
 var (
@@ -29,8 +29,6 @@ var (
 	agentName = flag.String("name", "", "Global agent name.")
 	level     = flag.Int("v", 3, "Logger level 0(panic)~5(debug).")
 	help      = flag.Bool("help", false, "Print this message.")
-	pid       = flag.Int("pid", -1, "(Warning)(Warning)(Warning)Do not use this.")
-	pidFile   = flag.String("p", "./sentinel.pid", "Store pid file of current sentinel.")
 )
 
 func init() {
@@ -38,16 +36,23 @@ func init() {
 }
 
 func main() {
+	var (
+		err       error
+		hostname  string
+		ag        *utils.Agent
+		agStl     utils.Sentinel
+		readyChan = make(chan int)
+	)
+
 	flag.Parse()
 
 	utils.SetLoggerLevel(*level)
-
 	if *help {
 		flag.Usage()
 		os.Exit(0)
 	}
 	if *agentName == "" {
-		hostname, err := os.Hostname()
+		hostname, err = os.Hostname()
 		if err != nil {
 			utils.Logger.Fatalf("Agent name not set, get hostname error %s", err)
 			os.Exit(1)
@@ -55,26 +60,39 @@ func main() {
 		utils.Logger.Warnf("Agent name not set use hostname %s", hostname)
 		*agentName = hostname
 	}
+	// trace system signal.
+	signalChan := make(chan os.Signal, 1)
+	signal.Notify(signalChan, syscall.SIGINT, syscall.SIGTERM, syscall.SIGKILL)
+	go func() {
+		<-readyChan
+		<-signalChan
+		if *sentinel {
+			agStl.Stop()
+		} else {
+			ag.Stop()
+		}
+	}()
+	// create agent.
+	ag = utils.NewAgent()
+	ag.ConfigDir = *configDir
+	ag.DataDir = *dataDir
+	ag.EtcdHosts = *etcdHosts
+	ag.Name = *agentName
 
-	var code int
 	if *sentinel {
-		code = runSentinel()
+		agStl, err = ag.CreateSentinel()
+		if err == nil {
+			close(readyChan)
+			err = agStl.Run()
+		}
 	} else {
-		code = runAgent()
+		close(readyChan)
+		err = ag.Run()
 	}
-	os.Exit(code)
-}
 
-// getEtcdList get host list from arguments.
-func getEtcdList() []string {
-	endpoints := strings.Split(*etcdHosts, ";")
-	for i, v := range endpoints {
-		endpoints[i] = strings.TrimSpace(v)
+	if err != nil {
+		os.Exit(-1)
+	} else {
+		os.Exit(0)
 	}
-	return endpoints
-}
-
-// getEtcdPath get agent config path from arguments.
-func getEtcdPath() string {
-	return "/zonst.org/logagent/" + *agentName + "/"
 }
