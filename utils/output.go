@@ -66,7 +66,7 @@ func (c *Config) Output(ev LogEvent) (err error) {
 	if err != nil {
 		return
 	}
-	err = checkError(rets)
+	err = CheckError(rets)
 	return
 }
 
@@ -163,7 +163,7 @@ func (c *Config) getOutputs() (outputs []OutputPlugin, err error) {
 		inj.Map(&part)
 
 		refvs, _ := inj.Invoke(handler)
-		checkError(refvs)
+		CheckError(refvs)
 		if err != nil {
 			return []OutputPlugin{}, err
 		}

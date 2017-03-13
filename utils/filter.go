@@ -51,7 +51,7 @@ func (c *Config) Input(ev LogEvent) (err error) {
 	if err != nil {
 		return
 	}
-	err = checkError(rets)
+	err = CheckError(rets)
 	return
 }
 
@@ -65,7 +65,7 @@ func (c *Config) RunFilters() (err error) {
 		c.Map(filters)
 		return
 	})
-	err = checkError(rets)
+	err = CheckError(rets)
 	return
 }
 
@@ -94,7 +94,7 @@ func (c *Config) getFilters() (filters []FilterPlugin, err error) {
 		if rets, err = inj.Invoke(handler); err != nil {
 			return
 		}
-		if err = checkError(rets); err != nil {
+		if err = CheckError(rets); err != nil {
 			return
 		}
 

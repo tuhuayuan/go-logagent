@@ -57,8 +57,8 @@ type OutputChannel interface {
 	Output(ev LogEvent) error
 }
 
-// Check reflect invoke error
-func checkError(refvs []reflect.Value) (err error) {
+// CheckError check f return
+func CheckError(refvs []reflect.Value) (err error) {
 	for _, refv := range refvs {
 		if refv.IsValid() {
 			refvi := refv.Interface()
@@ -86,7 +86,7 @@ func (c *TypePluginConfig) Invoke(f interface{}) (refvs []reflect.Value, err err
 	if refvs, err = c.Injector.Invoke(f); err != nil {
 		return
 	}
-	err = checkError(refvs)
+	err = CheckError(refvs)
 	return
 }
 

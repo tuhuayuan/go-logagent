@@ -41,7 +41,7 @@ func (c *Config) RunInputs() (err error) {
 	if err != nil {
 		return
 	}
-	err = checkError(rets)
+	err = CheckError(rets)
 	return
 }
 
@@ -58,7 +58,7 @@ func (c *Config) StopInputs() (err error) {
 	if err != nil {
 		return
 	}
-	err = checkError(rets)
+	err = CheckError(rets)
 	return
 }
 
@@ -98,7 +98,7 @@ func (c *Config) getInputs() (inputs []InputPlugin, err error) {
 		if rets, err = inj.Invoke(handler); err != nil {
 			return
 		}
-		if err = checkError(rets); err != nil {
+		if err = CheckError(rets); err != nil {
 			return
 		}
 

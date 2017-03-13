@@ -47,9 +47,9 @@ func Test_Run(t *testing.T) {
 		Timestamp: time.Now(),
 		Message:   string(raw),
 		Extra: map[string]interface{}{
-			"@elastic_indices": "${@date}.logagent.test",
-			"@elastic_doctype": "test",
-			"@elastic_docid":   "",
+			"@elastic_docindex": "${@date}.logagent.test",
+			"@elastic_doctype":  "test",
+			"@elastic_docid":    "",
 		},
 	}
 
