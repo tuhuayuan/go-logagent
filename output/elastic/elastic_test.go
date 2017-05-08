@@ -27,7 +27,7 @@ func Test_Run(t *testing.T) {
         "output": [
             {
                 "type": "elastic",
-                "hosts": ["localhost:9200"]
+                "hosts": ["http://127.0.0.1:9200"]
             }
         ]
     }

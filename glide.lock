@@ -1,5 +1,5 @@
-hash: 8dfa5334d892783cb8d146c9cd80a2f923aa636eaa1a1126670a72d8e0c65a69
-updated: 2017-03-12T17:01:19.117059368+08:00
+hash: 3bf68a51c1afbdea8adc1b57f047d6e0c6d88241377c818df7004203495048ba
+updated: 2017-05-08T12:06:09.028017184+08:00
 imports:
 - name: github.com/araddon/gou
   version: 0ab1e8f997e35d27da012072dc531fcc0204da5a
@@ -16,7 +16,7 @@ imports:
 - name: github.com/fsnotify/fsnotify
   version: a904159b9206978bb6d53fcc7a769e5cd726c737
 - name: github.com/garyburd/redigo
-  version: 0d253a66e6e1349f4581d6d2b300ee434ee2da9f
+  version: 8873b2f1995f59d4bcdd2b0dc9858e2cb9bf0c13
   subpackages:
   - internal
   - redis
@@ -27,7 +27,7 @@ imports:
   subpackages:
   - lib
 - name: github.com/Sirupsen/logrus
-  version: 0208149b40d863d2c1a2f8fe5753096a9cf2cc8b
+  version: ba1b36c82c5e05c4f912a88eab0dcd91a171688f
 - name: github.com/ugorji/go
   version: ded73eae5db7e7a0ef6f55aace87a2873c5d2b74
   subpackages:
@@ -44,6 +44,8 @@ imports:
   version: e4594059fe4cde2daf423055a596c2cd1e6c9adf
   subpackages:
   - unix
+- name: gopkg.in/olivere/elastic.v5
+  version: 6f76abde0f1f149b7d6fc47aee4c54366844f775
 testImports:
 - name: github.com/davecgh/go-spew
   version: 04cdfd42973bb9c8589fd6a731800cf222fde1a9

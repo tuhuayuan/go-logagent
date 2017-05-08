@@ -1,7 +1,6 @@
 package queue
 
 // 这个文件实现给予文件系统的FIFO队列，是NSQ消息服务器的一部分
-// 太复杂！！ 所以让我们用中文来注释一下
 
 import (
 	"bufio"
@@ -77,7 +76,6 @@ type diskQueue struct {
 }
 
 // New 创建或者打开一个已存在的队列
-//
 func New(name string, dataPath string, maxBytesPerFile int64,
 	minMsgSize int32, maxMsgSize int32,
 	syncEvery int64, syncTimeout time.Duration,

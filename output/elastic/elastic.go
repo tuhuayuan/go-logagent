@@ -1,9 +1,11 @@
 package outputelastic
 
 import (
+	"context"
+
 	"zonst/qipai/logagent/utils"
 
-	elastigo "github.com/mattbaird/elastigo/lib"
+	elastic "gopkg.in/olivere/elastic.v5"
 )
 
 const (
@@ -19,7 +21,7 @@ type PluginConfig struct {
 	Username string   `json:"username"`
 	Password string   `json:"password"`
 
-	conn         *elastigo.Conn
+	conn         *elastic.Client
 	bufChan      chan utils.LogEvent
 	exitChan     chan int
 	exitSyncChan chan int
@@ -37,7 +39,6 @@ func InitHandler(part *utils.ConfigPart) (plugin *PluginConfig, err error) {
 				Type: PluginName,
 			},
 		},
-		conn:         elastigo.NewConn(),
 		bufChan:      make(chan utils.LogEvent),
 		exitChan:     make(chan int),
 		exitSyncChan: make(chan int),
@@ -49,17 +50,14 @@ func InitHandler(part *utils.ConfigPart) (plugin *PluginConfig, err error) {
 		return
 	}
 	// setup elastic client
-	config.conn.SetHosts(config.Hosts)
-	if config.Username != "" {
-		config.conn.Username = config.Username
-		config.conn.Password = config.Password
-	}
-	// test connection
-	_, err = config.conn.Health("_all")
+
+	config.conn, err = elastic.NewClient(
+		elastic.SetURL(config.Hosts...),
+		elastic.SetBasicAuth(config.Username, config.Password),
+	)
 	if err != nil {
 		utils.Logger.Warnf("Elasic cluster health check error %q", err)
 	}
-
 	plugin = &config
 	return
 }
@@ -75,8 +73,12 @@ func (plugin *PluginConfig) Process(ev utils.LogEvent) (err error) {
 	docIndex = ev.Format(ev.Extra["@elastic_docindex"].(string))
 	docType = ev.Format(ev.Extra["@elastic_doctype"].(string))
 	docID = ev.Format(ev.Extra["@elastic_docid"].(string))
-
-	_, err = plugin.conn.Index(docIndex, docType, docID, map[string]interface{}{}, ev.Message)
+	_, err = plugin.conn.Index().
+		Index(docIndex).
+		Type(docType).
+		Id(docID).
+		BodyString(ev.Message).
+		Do(context.Background())
 	if err != nil {
 		utils.Logger.Warnf("Elastic: output index error %q", err)
 	}
@@ -85,5 +87,5 @@ func (plugin *PluginConfig) Process(ev utils.LogEvent) (err error) {
 
 // Stop stop loop.
 func (plugin *PluginConfig) Stop() {
-	plugin.conn.Close()
+	plugin.conn.Stop()
 }
