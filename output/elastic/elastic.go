@@ -87,5 +87,7 @@ func (plugin *PluginConfig) Process(ev utils.LogEvent) (err error) {
 
 // Stop stop loop.
 func (plugin *PluginConfig) Stop() {
-	plugin.conn.Stop()
+	if plugin.conn != nil {
+		plugin.conn.Stop()
+	}
 }
