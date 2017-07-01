@@ -3,7 +3,7 @@ package patchfilter
 import (
 	"testing"
 
-	"zonst/qipai/logagent/utils"
+	"github.com/tuhuayuan/go-logagent/utils"
 
 	"time"
 

@@ -7,18 +7,18 @@ import (
 	"runtime"
 	"syscall"
 
-	_ "zonst/qipai/logagent/filter/grok"
-	_ "zonst/qipai/logagent/filter/patch"
-	_ "zonst/qipai/logagent/filter/timezone"
-	_ "zonst/qipai/logagent/input/file"
-	_ "zonst/qipai/logagent/input/http"
-	_ "zonst/qipai/logagent/input/stdin"
-	_ "zonst/qipai/logagent/input/udp"
-	_ "zonst/qipai/logagent/output/elastic"
-	_ "zonst/qipai/logagent/output/redis"
-	_ "zonst/qipai/logagent/output/stdout"
+	_ "github.com/tuhuayuan/go-logagent/filter/grok"
+	_ "github.com/tuhuayuan/go-logagent/filter/patch"
+	_ "github.com/tuhuayuan/go-logagent/filter/timezone"
+	_ "github.com/tuhuayuan/go-logagent/input/file"
+	_ "github.com/tuhuayuan/go-logagent/input/http"
+	_ "github.com/tuhuayuan/go-logagent/input/stdin"
+	_ "github.com/tuhuayuan/go-logagent/input/udp"
+	_ "github.com/tuhuayuan/go-logagent/output/elastic"
+	_ "github.com/tuhuayuan/go-logagent/output/redis"
+	_ "github.com/tuhuayuan/go-logagent/output/stdout"
 
-	"zonst/qipai/logagent/utils"
+	"github.com/tuhuayuan/go-logagent/utils"
 )
 
 var (

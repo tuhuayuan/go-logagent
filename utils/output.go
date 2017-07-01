@@ -8,7 +8,7 @@ import (
 	"sync"
 	"time"
 
-	"zonst/qipai/logagent/queue"
+	"github.com/tuhuayuan/go-logagent/queue"
 
 	"github.com/codegangsta/inject"
 )

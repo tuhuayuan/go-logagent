@@ -1,4 +1,4 @@
-package: zonst/qipai/logagent
+package: github.com/tuhuayuan/go-logagent
 import:
 - package: github.com/Sirupsen/logrus
 - package: github.com/codegangsta/inject

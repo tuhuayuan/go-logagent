@@ -1,7 +1,7 @@
 package patchfilter
 
 import (
-	"zonst/qipai/logagent/utils"
+	"github.com/tuhuayuan/go-logagent/utils"
 )
 
 // 暂时没发现有什么用，用来测试的

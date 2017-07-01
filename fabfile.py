@@ -1,3 +1,4 @@
+# pylint: disable-all
 from __future__ import with_statement
 from fabric.api import local, settings, abort, run, cd, env, put, lcd
 

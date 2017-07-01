@@ -45,7 +45,7 @@ func Test_LoadFromNode(t *testing.T) {
 	c, err := client.New(cfg)
 	assert.NoError(t, err)
 	api := client.NewKeysAPI(c)
-	key := "/zonst.org/logagent/" + agent + "/"
+	key := "/" + agent + "/"
 	data := "../tmp/queue"
 	config := `
 	{

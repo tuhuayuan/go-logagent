@@ -2,12 +2,11 @@ package outputredis
 
 import (
 	"testing"
-
-	"zonst/qipai/logagent/utils"
-
 	"time"
 
 	"github.com/stretchr/testify/assert"
+
+	"github.com/tuhuayuan/go-logagent/utils"
 )
 
 func init() {

@@ -15,7 +15,7 @@ import (
 
 	"github.com/fsnotify/fsnotify"
 
-	"zonst/qipai/logagent/utils"
+	"github.com/tuhuayuan/go-logagent/utils"
 )
 
 const (

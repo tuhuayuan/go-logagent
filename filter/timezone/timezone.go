@@ -4,7 +4,8 @@ package filtertimezone
 
 import (
 	"time"
-	"zonst/qipai/logagent/utils"
+
+	"github.com/tuhuayuan/go-logagent/utils"
 )
 
 const (

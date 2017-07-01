@@ -1,13 +1,13 @@
 package outputelastic
 
 import (
+	"encoding/json"
 	"testing"
 	"time"
 
 	"github.com/stretchr/testify/assert"
 
-	"encoding/json"
-	"zonst/qipai/logagent/utils"
+	"github.com/tuhuayuan/go-logagent/utils"
 )
 
 func init() {

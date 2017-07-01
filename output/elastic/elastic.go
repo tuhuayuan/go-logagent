@@ -3,7 +3,7 @@ package outputelastic
 import (
 	"context"
 
-	"zonst/qipai/logagent/utils"
+	"github.com/tuhuayuan/go-logagent/utils"
 
 	elastic "gopkg.in/olivere/elastic.v5"
 )

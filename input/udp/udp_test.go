@@ -8,8 +8,8 @@ import (
 
 	"github.com/stretchr/testify/assert"
 
-	"zonst/qipai/logagent/queue"
-	"zonst/qipai/logagent/utils"
+	"github.com/tuhuayuan/go-logagent/queue"
+	"github.com/tuhuayuan/go-logagent/utils"
 )
 
 func init() {

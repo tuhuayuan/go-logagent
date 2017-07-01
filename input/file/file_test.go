@@ -1,18 +1,18 @@
 package fileinput
 
 import (
+	"bufio"
+	"bytes"
 	"fmt"
 	"os"
+	"sync"
 	"testing"
 	"time"
 
 	"github.com/stretchr/testify/assert"
 
-	"bufio"
-	"bytes"
-	"sync"
-	"zonst/qipai/logagent/queue"
-	"zonst/qipai/logagent/utils"
+	"github.com/tuhuayuan/go-logagent/queue"
+	"github.com/tuhuayuan/go-logagent/utils"
 )
 
 var (

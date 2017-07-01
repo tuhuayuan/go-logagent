@@ -3,9 +3,9 @@ package stdininput
 import (
 	"testing"
 
-	"zonst/qipai/logagent/utils"
-
 	"github.com/stretchr/testify/assert"
+
+	"github.com/tuhuayuan/go-logagent/utils"
 )
 
 func init() {

@@ -5,7 +5,8 @@ import (
 	"net"
 	"os"
 	"time"
-	"zonst/qipai/logagent/utils"
+
+	"github.com/tuhuayuan/go-logagent/utils"
 )
 
 const (

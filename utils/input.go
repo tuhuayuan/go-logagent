@@ -2,10 +2,9 @@ package utils
 
 import (
 	"errors"
+	"reflect"
 
 	"github.com/codegangsta/inject"
-
-	"reflect"
 )
 
 // InputPlugin interface.

@@ -293,5 +293,5 @@ func getEtcdList(hosts string) []string {
 
 // getEtcdPath get agent config path from arguments.
 func getEtcdPath(agName string) string {
-	return "/zonst.org/logagent/" + agName + "/"
+	return "/" + agName + "/"
 }

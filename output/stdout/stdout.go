@@ -3,7 +3,7 @@ package outputstdout
 import (
 	"fmt"
 
-	"zonst/qipai/logagent/utils"
+	"github.com/tuhuayuan/go-logagent/utils"
 )
 
 const (

@@ -1,14 +1,11 @@
 package utils
 
 import (
+	"encoding/json"
+	"fmt"
+	"os"
 	"testing"
 	"time"
-
-	"fmt"
-
-	"encoding/json"
-
-	"os"
 
 	"github.com/stretchr/testify/assert"
 )

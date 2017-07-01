@@ -1,15 +1,14 @@
 package inputhttp
 
 import (
+	"bytes"
 	"net/http"
 	"testing"
-	"zonst/qipai/logagent/utils"
-
 	"time"
 
-	"bytes"
-
 	"github.com/stretchr/testify/assert"
+
+	"github.com/tuhuayuan/go-logagent/utils"
 )
 
 func init() {
